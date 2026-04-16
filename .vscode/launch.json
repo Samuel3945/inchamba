@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Inchamba (Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "deviceId": "chrome",
+      "args": [
+        "--web-port",
+        "8080",
+        "--web-hostname",
+        "localhost"
+      ],
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://tbmimzqmorychibanplz.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWltenFtb3J5Y2hpYmFucGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMjQ4NTgsImV4cCI6MjA5MTgwMDg1OH0.EZ0-vBVkxipBTDurGQUf5gWez9b2tp2D1ll7-Xx2LcA"
+      ]
+    }
+  ]
+}
