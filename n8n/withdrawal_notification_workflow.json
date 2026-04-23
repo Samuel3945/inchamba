@@ -1,0 +1,104 @@
+{
+  "name": "Inchamba - Notificación Retiro Samuel",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "inchamba-withdrawal-request",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0001-0001-0001-000000000001",
+      "name": "Webhook Retiro",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 300],
+      "webhookId": "inchamba-withdrawal-request"
+    },
+    {
+      "parameters": {
+        "fromEmail": "noreply@inchamba.co",
+        "toEmail": "samuelalzatetejada@gmail.com",
+        "subject": "=⚠️ Solicitud de Retiro - {{ $json.body.workerName }} | Inchamba",
+        "emailType": "html",
+        "message": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9f9f9; border-radius: 12px;\">\n  <div style=\"background: #1B4B8A; padding: 20px; border-radius: 12px 12px 0 0; text-align: center;\">\n    <h1 style=\"color: white; margin: 0; font-size: 24px;\">💸 Solicitud de Retiro</h1>\n    <p style=\"color: rgba(255,255,255,0.8); margin: 8px 0 0;\">Inchamba Platform</p>\n  </div>\n  <div style=\"background: white; padding: 24px; border-radius: 0 0 12px 12px;\">\n    <table style=\"width: 100%; border-collapse: collapse;\">\n      <tr>\n        <td style=\"padding: 12px; background: #f5f5f5; border-radius: 8px; font-weight: bold; color: #555;\">👤 Trabajador</td>\n        <td style=\"padding: 12px; font-size: 16px; font-weight: 600;\">{{ $json.body.workerName }}</td>\n      </tr>\n      <tr><td colspan=\"2\" style=\"height: 8px;\"></td></tr>\n      <tr>\n        <td style=\"padding: 12px; background: #f5f5f5; border-radius: 8px; font-weight: bold; color: #555;\">📱 Teléfono</td>\n        <td style=\"padding: 12px; font-size: 16px;\">{{ $json.body.workerPhone }}</td>\n      </tr>\n      <tr><td colspan=\"2\" style=\"height: 8px;\"></td></tr>\n      <tr>\n        <td style=\"padding: 12px; background: #f5f5f5; border-radius: 8px; font-weight: bold; color: #555;\">🪪 Cédula</td>\n        <td style=\"padding: 12px; font-size: 16px; font-family: monospace;\">{{ $json.body.workerCedula }}</td>\n      </tr>\n      <tr><td colspan=\"2\" style=\"height: 8px;\"></td></tr>\n      <tr>\n        <td style=\"padding: 12px; background: #e8f5e9; border-radius: 8px; font-weight: bold; color: #2e7d32;\">💰 Monto</td>\n        <td style=\"padding: 12px; font-size: 22px; font-weight: 700; color: #2e7d32;\">{{ $json.body.amountFormatted }}</td>\n      </tr>\n    </table>\n    <div style=\"margin-top: 24px; padding: 16px; background: #fff3e0; border-radius: 8px; border-left: 4px solid #ff9800;\">\n      <p style=\"margin: 0; color: #e65100; font-size: 14px;\">⏰ Solicitud recibida el {{ $json.body.timestamp }}</p>\n      <p style=\"margin: 8px 0 0; color: #795548; font-size: 13px;\">Revisa el panel de Supabase para aprobar o rechazar este retiro.</p>\n    </div>\n    <div style=\"margin-top: 20px; text-align: center;\">\n      <a href=\"https://supabase.com/dashboard\" style=\"display: inline-block; padding: 12px 28px; background: #1B4B8A; color: white; text-decoration: none; border-radius: 8px; font-weight: bold;\">Ir a Supabase Dashboard</a>\n    </div>\n  </div>\n  <p style=\"text-align: center; color: #999; font-size: 12px; margin-top: 16px;\">Inchamba · Sistema automático · No responder</p>\n</div>",
+        "options": {}
+      },
+      "id": "b1c2d3e4-0002-0002-0002-000000000002",
+      "name": "Email a Samuel",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [480, 200],
+      "credentials": {
+        "smtp": {
+          "id": "2",
+          "name": "SMTP account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "={{ $env.TELEGRAM_CHAT_ID }}" },
+            {
+              "name": "text",
+              "value": "=💸 *RETIRO INCHAMBA*\n\n👤 *Trabajador:* {{ $json.body.workerName }}\n📱 *Teléfono:* {{ $json.body.workerPhone }}\n🪪 *Cédula:* {{ $json.body.workerCedula }}\n💰 *Monto:* {{ $json.body.amountFormatted }}\n\n⏰ {{ $json.body.timestamp }}"
+            },
+            { "name": "parse_mode", "value": "Markdown" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b1c2d3e4-0003-0003-0003-000000000003",
+      "name": "Telegram a Samuel",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"ok\": true }",
+        "options": { "responseCode": 200 }
+      },
+      "id": "b1c2d3e4-0004-0004-0004-000000000004",
+      "name": "Responder OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [720, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Retiro": {
+      "main": [
+        [
+          { "node": "Email a Samuel", "type": "main", "index": 0 },
+          { "node": "Telegram a Samuel", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Email a Samuel": {
+      "main": [
+        [{ "node": "Responder OK", "type": "main", "index": 0 }]
+      ]
+    },
+    "Telegram a Samuel": {
+      "main": [
+        [{ "node": "Responder OK", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "tags": ["inchamba", "withdrawal", "notification"]
+}

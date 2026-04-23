@@ -16,7 +16,65 @@
       ],
       "toolArgs": [
         "--dart-define=SUPABASE_URL=https://tbmimzqmorychibanplz.supabase.co",
-        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWltenFtb3J5Y2hpYmFucGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMjQ4NTgsImV4cCI6MjA5MTgwMDg1OH0.EZ0-vBVkxipBTDurGQUf5gWez9b2tp2D1ll7-Xx2LcA"
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWltenFtb3J5Y2hpYmFucGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMjQ4NTgsImV4cCI6MjA5MTgwMDg1OH0.EZ0-vBVkxipBTDurGQUf5gWez9b2tp2D1ll7-Xx2LcA",
+        "--dart-define=WOMPI_PUBLIC_KEY=pub_test_PyD2VUTE2IRGCRGrAJI2IrDiVfJQmKWH",
+        "--dart-define=WOMPI_INTEGRITY_KEY=test_integrity_KkBQ3txPdVp911lbHWMqvrcPyDOYfyBK"
+      ]
+    },
+    {
+      "name": "Inchamba (Android)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "deviceId": "android",
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://tbmimzqmorychibanplz.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWltenFtb3J5Y2hpYmFucGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMjQ4NTgsImV4cCI6MjA5MTgwMDg1OH0.EZ0-vBVkxipBTDurGQUf5gWez9b2tp2D1ll7-Xx2LcA",
+        "--dart-define=WOMPI_PUBLIC_KEY=pub_test_PyD2VUTE2IRGCRGrAJI2IrDiVfJQmKWH",
+        "--dart-define=WOMPI_INTEGRITY_KEY=test_integrity_KkBQ3txPdVp911lbHWMqvrcPyDOYfyBK"
+      ]
+    },
+    {
+      "name": "Inchamba (iOS)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "deviceId": "ios",
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://tbmimzqmorychibanplz.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWltenFtb3J5Y2hpYmFucGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMjQ4NTgsImV4cCI6MjA5MTgwMDg1OH0.EZ0-vBVkxipBTDurGQUf5gWez9b2tp2D1ll7-Xx2LcA",
+        "--dart-define=WOMPI_PUBLIC_KEY=pub_test_PyD2VUTE2IRGCRGrAJI2IrDiVfJQmKWH",
+        "--dart-define=WOMPI_INTEGRITY_KEY=test_integrity_KkBQ3txPdVp911lbHWMqvrcPyDOYfyBK"
+      ]
+    },
+    {
+      "name": "Inchamba (macOS)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "cwd": "${workspaceFolder}",
+      "deviceId": "macos",
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://tbmimzqmorychibanplz.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWltenFtb3J5Y2hpYmFucGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMjQ4NTgsImV4cCI6MjA5MTgwMDg1OH0.EZ0-vBVkxipBTDurGQUf5gWez9b2tp2D1ll7-Xx2LcA",
+        "--dart-define=WOMPI_PUBLIC_KEY=pub_test_PyD2VUTE2IRGCRGrAJI2IrDiVfJQmKWH",
+        "--dart-define=WOMPI_INTEGRITY_KEY=test_integrity_KkBQ3txPdVp911lbHWMqvrcPyDOYfyBK"
+      ]
+    },
+    {
+      "name": "Inchamba (Profile)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "profile",
+      "deviceId": "chrome",
+      "toolArgs": [
+        "--dart-define=SUPABASE_URL=https://tbmimzqmorychibanplz.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRibWltenFtb3J5Y2hpYmFucGx6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMjQ4NTgsImV4cCI6MjA5MTgwMDg1OH0.EZ0-vBVkxipBTDurGQUf5gWez9b2tp2D1ll7-Xx2LcA",
+        "--dart-define=WOMPI_PUBLIC_KEY=pub_test_PyD2VUTE2IRGCRGrAJI2IrDiVfJQmKWH",
+        "--dart-define=WOMPI_INTEGRITY_KEY=test_integrity_KkBQ3txPdVp911lbHWMqvrcPyDOYfyBK"
       ]
     }
   ]

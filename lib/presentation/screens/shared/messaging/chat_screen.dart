@@ -127,7 +127,7 @@ class ChatScreen extends HookConsumerWidget {
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
-                          borderSide: const BorderSide(color: AppColors.darkBorder),
+                          borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
@@ -185,7 +185,11 @@ class _MessageBubble extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: isMe ? AppColors.primary : AppColors.darkCard,
+              color: isMe
+                    ? AppColors.primary
+                    : (Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.darkCard
+                        : AppColors.surfaceLow),
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(16),
                 topRight: const Radius.circular(16),
@@ -205,7 +209,7 @@ class _MessageBubble extends StatelessWidget {
                         imageUrl: imageUrl!,
                         width: 200,
                         fit: BoxFit.cover,
-                        placeholder: (_, _u) => const SizedBox(
+                        placeholder: (_, _) => const SizedBox(
                           height: 100,
                           child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
                         ),

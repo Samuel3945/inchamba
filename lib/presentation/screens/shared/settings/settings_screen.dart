@@ -28,7 +28,7 @@ class SettingsScreen extends HookConsumerWidget {
             subtitle: Text(isDark ? 'Activado' : 'Desactivado', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textMuted)),
             secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode, color: AppColors.primary),
             value: isDark,
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
             onChanged: (_) => ref.read(themeModeProvider.notifier).toggle(),
           ),
           const Divider(),

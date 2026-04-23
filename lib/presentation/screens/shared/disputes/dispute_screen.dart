@@ -177,7 +177,7 @@ class DisputeScreen extends HookConsumerWidget {
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.darkBorder),
+                          border: Border.all(color: AppColors.surfaceDim),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(Icons.add_photo_alternate_outlined, color: AppColors.textMuted),

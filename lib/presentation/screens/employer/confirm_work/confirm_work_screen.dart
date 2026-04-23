@@ -105,8 +105,8 @@ class ConfirmWorkScreen extends HookConsumerWidget {
                               width: 120,
                               height: 120,
                               fit: BoxFit.cover,
-                              placeholder: (_, _u) => const ShimmerLoading(width: 120, height: 120),
-                              errorWidget: (_, _u, _e) => Container(
+                              placeholder: (_, _) => const ShimmerLoading(width: 120, height: 120),
+                              errorWidget: (_, _, _) => Container(
                                 width: 120,
                                 height: 120,
                                 color: AppColors.darkSurface,

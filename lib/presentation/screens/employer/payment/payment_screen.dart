@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -12,6 +14,12 @@ import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/job_provider.dart';
+import '../../../providers/wallet_provider.dart';
+
+String _wompiIntegrityHash(String reference, int amountCents, String integrityKey) {
+  final raw = '$reference${amountCents}COP$integrityKey';
+  return sha256.convert(utf8.encode(raw)).toString();
+}
 
 class PaymentScreen extends HookConsumerWidget {
   final String jobPostId;
@@ -21,7 +29,9 @@ class PaymentScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final jobAsync = ref.watch(jobDetailProvider(jobPostId));
+    final balanceAsync = ref.watch(walletBalanceProvider);
     final isPaying = useState(false);
+    final isPayingFromWallet = useState(false);
     final paymentConfirmed = useState(false);
     final timeoutReached = useState(false);
     final channelRef = useRef<RealtimeChannel?>(null);
@@ -33,6 +43,9 @@ class PaymentScreen extends HookConsumerWidget {
       channelRef.value?.unsubscribe();
       pollingTimerRef.value?.cancel();
       timeoutTimerRef.value?.cancel();
+      ref.invalidate(employerJobsProvider);
+      ref.invalidate(employerStatsProvider);
+      ref.invalidate(recentApplicantsProvider);
     }
 
     Future<void> checkPaymentStatus() async {
@@ -45,48 +58,77 @@ class PaymentScreen extends HookConsumerWidget {
 
     void startListening() {
       final ds = ref.read(supabaseDatasourceProvider);
-
-      // Realtime subscription
       channelRef.value = ds.subscribeToEscrow(jobPostId, (data) {
-        if (data['status'] == 'held') {
-          onPaymentConfirmed();
-        }
+        if (data['status'] == 'held') onPaymentConfirmed();
       });
-
-      // Polling fallback
       pollingTimerRef.value = Timer.periodic(
         const Duration(seconds: AppConstants.paymentPollingSeconds),
         (_) => checkPaymentStatus(),
       );
-
-      // Timeout
       timeoutTimerRef.value = Timer(
         const Duration(minutes: AppConstants.paymentTimeoutMinutes),
         () => timeoutReached.value = true,
       );
     }
 
-    Future<void> openBoldPayment(double amount) async {
+    Future<void> openWompiPayment(double amount) async {
       final ds = ref.read(supabaseDatasourceProvider);
       final userId = ds.currentUserId!;
+      final reference = 'JOB_$jobPostId';
+      final amountCents = (amount * 100).round();
 
-      // Create escrow transaction
       await ds.createEscrowTransaction({
         'job_post_id': jobPostId,
         'employer_id': userId,
         'amount': amount,
         'status': 'pending',
-        'bold_reference': 'JOB_$jobPostId',
+        'bold_reference': reference,
       });
 
       isPaying.value = true;
       startListening();
 
-      // Open Bold payment link
-      final boldUrl = '${AppConstants.boldPaymentUrl}?amount=${amount.toInt()}&reference=JOB_$jobPostId';
-      final uri = Uri.parse(boldUrl);
+      final hash = _wompiIntegrityHash(reference, amountCents, AppConstants.wompiIntegrityKey);
+      final uri = Uri.parse(AppConstants.wompiCheckoutUrl).replace(queryParameters: {
+        'public-key': AppConstants.wompiPublicKey,
+        'currency': 'COP',
+        'amount-in-cents': '$amountCents',
+        'reference': reference,
+        'signature:integrity': hash,
+      });
+
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    }
+
+    Future<void> payFromWallet() async {
+      isPayingFromWallet.value = true;
+      try {
+        final ds = ref.read(supabaseDatasourceProvider);
+        final result = await ds.payJobFromWallet(jobPostId);
+        if (result['success'] == true) {
+          ref.invalidate(walletBalanceProvider);
+          onPaymentConfirmed();
+        } else {
+          isPayingFromWallet.value = false;
+          if (context.mounted) {
+            final error = result['error'] as String?;
+            final msg = error == 'insufficient_balance'
+                ? 'Saldo insuficiente. Recarga tu saldo primero.'
+                : 'Error al procesar el pago: $error';
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg), backgroundColor: AppColors.error),
+            );
+          }
+        }
+      } catch (e) {
+        isPayingFromWallet.value = false;
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+          );
+        }
       }
     }
 
@@ -153,6 +195,8 @@ class PaymentScreen extends HookConsumerWidget {
       ),
       data: (job) {
         final totalAmount = job.pay * job.workersNeeded;
+        final balance = balanceAsync.valueOrNull ?? 0;
+        final hasEnoughBalance = balance >= totalAmount;
 
         if (isPaying.value) {
           return Scaffold(
@@ -218,7 +262,6 @@ class PaymentScreen extends HookConsumerWidget {
                   style: GoogleFonts.poppins(fontSize: 22, fontWeight: FontWeight.w700),
                 ),
                 const SizedBox(height: 20),
-                // Summary card
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -240,8 +283,7 @@ class PaymentScreen extends HookConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                // Escrow explanation
+                const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -263,18 +305,103 @@ class PaymentScreen extends HookConsumerWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
+
+                // ── Pagar con saldo ──
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardTheme.color,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: hasEnoughBalance
+                          ? AppColors.success.withValues(alpha: 0.4)
+                          : AppColors.surfaceDim,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.account_balance_wallet_rounded, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Pagar con saldo',
+                            style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15),
+                          ),
+                          const Spacer(),
+                          TextButton(
+                            onPressed: () => context.push('/employer/wallet'),
+                            child: Text(
+                              hasEnoughBalance ? 'Recargar más' : 'Recargar saldo',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Saldo disponible: ${Formatters.currency(balance)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: hasEnoughBalance ? AppColors.success : AppColors.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (!hasEnoughBalance)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'Te faltan ${Formatters.currency(totalAmount - balance)}',
+                            style: GoogleFonts.poppins(fontSize: 12, color: AppColors.error),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: (hasEnoughBalance && !isPayingFromWallet.value)
+                              ? payFromWallet
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.success,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          child: isPayingFromWallet.value
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  hasEnoughBalance
+                                      ? 'Pagar ${Formatters.currency(totalAmount)} con saldo'
+                                      : 'Saldo insuficiente',
+                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // ── Pagar con Wompi ──
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => openBoldPayment(totalAmount),
+                  child: OutlinedButton.icon(
+                    onPressed: isPaying.value ? null : () => openWompiPayment(totalAmount),
                     icon: const Icon(Icons.payment_rounded),
                     label: Text(
-                      '${AppStrings.payWithBold} ${Formatters.currency(totalAmount)}',
+                      'Pagar con Wompi ${Formatters.currency(totalAmount)}',
                       style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 18),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                   ),
                 ),

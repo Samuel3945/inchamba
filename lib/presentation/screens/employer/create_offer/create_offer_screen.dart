@@ -1,11 +1,10 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -40,9 +39,19 @@ class CreateOfferScreen extends HookConsumerWidget {
     final textCtrl = useTextEditingController();
     final scrollCtrl = useScrollController();
     final isLoading = useState(false);
+    final isRecording = useState(false);
     final conversationHistory = useState<List<Map<String, String>>>([]);
     final sessionId = useMemoized(() => const Uuid().v4());
     final proposal = useState<Map<String, dynamic>?>(null);
+    final stt = useMemoized(() => SpeechToText());
+    final sttAvailable = useState(false);
+
+    useEffect(() {
+      stt.initialize(onError: (_) => isRecording.value = false).then((ok) {
+        sttAvailable.value = ok;
+      });
+      return () => stt.stop();
+    }, []);
 
     void scrollToBottom() {
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -56,7 +65,7 @@ class CreateOfferScreen extends HookConsumerWidget {
       });
     }
 
-    Future<void> sendToAgent(String content, {String messageType = 'text', String? audioUrl}) async {
+    Future<void> sendToAgent(String content) async {
       final profile = ref.read(currentProfileProvider);
       if (profile == null) return;
 
@@ -74,9 +83,8 @@ class CreateOfferScreen extends HookConsumerWidget {
           data: {
             'employer_id': profile.id,
             'session_id': sessionId,
-            'message_type': messageType,
+            'message_type': 'text',
             'content': content,
-            'audio_url': audioUrl,
             'conversation_history': newHistory,
           },
         );
@@ -110,25 +118,16 @@ class CreateOfferScreen extends HookConsumerWidget {
         }
       } on DioException catch (e) {
         String errorMsg;
-        if (e.type == DioExceptionType.connectionTimeout ||
-            e.type == DioExceptionType.receiveTimeout) {
-          errorMsg = 'Tiempo de espera agotado. El agente tardó demasiado en responder.';
+        if (e.type == DioExceptionType.connectionTimeout || e.type == DioExceptionType.receiveTimeout) {
+          errorMsg = 'Tiempo de espera agotado. El agente tardó demasiado.';
         } else if (e.type == DioExceptionType.connectionError) {
-          errorMsg = 'No se pudo conectar con el agente. Verifica tu conexión a internet.';
-        } else if (e.response != null) {
-          errorMsg = 'Error del servidor (${e.response?.statusCode}). Intenta de nuevo.';
+          errorMsg = 'No se pudo conectar con el agente. Verifica tu conexión.';
         } else {
-          errorMsg = 'Error de conexión. Intenta de nuevo.';
+          errorMsg = 'Error del servidor (${e.response?.statusCode}). Intenta de nuevo.';
         }
-        messages.value = [
-          ...messages.value,
-          _ChatMessage(content: errorMsg, isUser: false),
-        ];
+        messages.value = [...messages.value, _ChatMessage(content: errorMsg, isUser: false)];
       } catch (e) {
-        messages.value = [
-          ...messages.value,
-          _ChatMessage(content: 'Error inesperado. Intenta de nuevo.', isUser: false),
-        ];
+        messages.value = [...messages.value, _ChatMessage(content: 'Error inesperado. Intenta de nuevo.', isUser: false)];
       } finally {
         isLoading.value = false;
         scrollToBottom();
@@ -144,44 +143,80 @@ class CreateOfferScreen extends HookConsumerWidget {
       await sendToAgent(text);
     }
 
-    Future<void> pickAudioFile() async {
-      final result = await FilePicker.platform.pickFiles(type: FileType.audio);
-      if (result == null || result.files.isEmpty) return;
-
-      final file = result.files.first;
-      final filePath = file.path;
-      if (filePath == null) return;
-
-      messages.value = [
-        ...messages.value,
-        _ChatMessage(content: '🎤 Audio: ${file.name}', isUser: true),
-      ];
-      scrollToBottom();
-
-      // Upload to Supabase
-      final ds = ref.read(supabaseDatasourceProvider);
-      try {
-        final storagePath = '${const Uuid().v4()}_${file.name}';
-        final audioUrl = await ds.uploadFile(
-          AppConstants.audioProposalsBucket,
-          storagePath,
-          File(filePath),
-        );
-        await sendToAgent('Audio enviado', messageType: 'audio', audioUrl: audioUrl);
-      } catch (e) {
-        messages.value = [
-          ...messages.value,
-          _ChatMessage(content: 'Error al subir el audio. Intenta de nuevo.', isUser: false),
-        ];
+    Future<void> toggleRecording() async {
+      if (isRecording.value) {
+        await stt.stop();
+        isRecording.value = false;
+        return;
       }
+
+      if (!sttAvailable.value) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Reconocimiento de voz no disponible en este dispositivo')),
+          );
+        }
+        return;
+      }
+
+      textCtrl.clear();
+      isRecording.value = true;
+
+      await stt.listen(
+        onResult: (result) {
+          textCtrl.text = result.recognizedWords;
+          if (result.finalResult) {
+            isRecording.value = false;
+          }
+        },
+        localeId: 'es_CO',
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 3),
+        listenOptions: SpeechListenOptions(
+          cancelOnError: true,
+          partialResults: true,
+        ),
+      );
+
+      isRecording.value = stt.isListening;
     }
 
     Future<void> publishOffer() async {
       if (proposal.value == null) return;
-      final ds = ref.read(supabaseDatasourceProvider);
       final profile = ref.read(currentProfileProvider);
       if (profile == null) return;
 
+      if (!profile.phoneVerified) {
+        if (context.mounted) {
+          await showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text('Teléfono no verificado',
+                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+              content: Text(
+                'Para publicar una oferta necesitas verificar tu número de teléfono. Agrégalo y verifica desde tu perfil.',
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancelar'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    context.push('/edit-profile');
+                  },
+                  child: const Text('Ir al perfil'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      final ds = ref.read(supabaseDatasourceProvider);
       isLoading.value = true;
       try {
         final p = proposal.value!;
@@ -200,7 +235,7 @@ class CreateOfferScreen extends HookConsumerWidget {
           'employer_id': profile.id,
           'title': p['title'] ?? '',
           'description': p['description'] ?? '',
-          if (categoryId != null) 'category_id': categoryId,
+          'category_id': ?categoryId,
           'city': p['city'] ?? profile.city,
           if (p['department'] != null) 'department': p['department'],
           if (p['address'] != null) 'address': p['address'],
@@ -215,7 +250,6 @@ class CreateOfferScreen extends HookConsumerWidget {
           'total_escrow_required': totalEscrow,
         });
 
-        // Save AI proposal snapshot for auditing
         await ds.saveAiProposal({
           'employer_id': profile.id,
           'n8n_session_id': sessionId,
@@ -229,22 +263,21 @@ class CreateOfferScreen extends HookConsumerWidget {
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error: $e')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       } finally {
         isLoading.value = false;
       }
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
             Container(
-              width: 32,
-              height: 32,
+              width: 32, height: 32,
               decoration: BoxDecoration(
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(8),
@@ -252,7 +285,13 @@ class CreateOfferScreen extends HookConsumerWidget {
               child: const Icon(Icons.smart_toy_rounded, size: 20, color: Colors.white),
             ),
             const SizedBox(width: 10),
-            Text('Agente Inchamba', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Agente Inchamba', style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w600)),
+                Text('IA para crear ofertas', style: GoogleFonts.poppins(fontSize: 10, color: AppColors.textMuted)),
+              ],
+            ),
           ],
         ),
       ),
@@ -264,9 +303,7 @@ class CreateOfferScreen extends HookConsumerWidget {
               padding: const EdgeInsets.all(16),
               itemCount: messages.value.length + (isLoading.value ? 1 : 0),
               itemBuilder: (context, index) {
-                if (index >= messages.value.length) {
-                  return _TypingIndicator();
-                }
+                if (index >= messages.value.length) return _TypingIndicator();
                 final msg = messages.value[index];
                 if (msg.isProposalCard && msg.proposal != null) {
                   return _ProposalCard(
@@ -279,6 +316,24 @@ class CreateOfferScreen extends HookConsumerWidget {
               },
             ),
           ),
+          // Barra de escucha activa
+          if (isRecording.value)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
+              color: AppColors.error.withValues(alpha: 0.1),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.graphic_eq_rounded, color: AppColors.error, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Escuchando... habla y el texto aparecerá abajo',
+                    style: GoogleFonts.poppins(fontSize: 13, color: AppColors.error, fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ),
           // Input bar
           Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
@@ -302,12 +357,14 @@ class CreateOfferScreen extends HookConsumerWidget {
                       textCapitalization: TextCapitalization.sentences,
                       onSubmitted: (_) => sendText(),
                       decoration: InputDecoration(
-                        hintText: 'Escribe tu mensaje...',
+                        hintText: 'Escribe o graba tu mensaje...',
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
-                          borderSide: BorderSide(color: AppColors.darkBorder),
+                          borderSide: BorderSide(
+                            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                          ),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
@@ -317,19 +374,31 @@ class CreateOfferScreen extends HookConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // Botón micrófono
                   GestureDetector(
-                    onTap: pickAudioFile,
-                    child: Container(
+                    onTap: isLoading.value ? null : toggleRecording,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: AppColors.darkSurface,
+                        color: isRecording.value
+                            ? AppColors.error
+                            : (isDark ? AppColors.darkSurface : AppColors.lightBg),
                         borderRadius: BorderRadius.circular(22),
+                        border: isRecording.value
+                            ? null
+                            : Border.all(color: isDark ? AppColors.darkBorder : AppColors.lightBorder),
                       ),
-                      child: const Icon(Icons.mic_rounded, color: AppColors.textLight),
+                      child: Icon(
+                        isRecording.value ? Icons.stop_rounded : Icons.mic_rounded,
+                        color: isRecording.value ? Colors.white : AppColors.textMuted,
+                        size: 22,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // Botón enviar
                   GestureDetector(
                     onTap: isLoading.value ? null : sendText,
                     child: Container(
@@ -354,11 +423,11 @@ class CreateOfferScreen extends HookConsumerWidget {
 
 class _ChatBubble extends StatelessWidget {
   final _ChatMessage message;
-
   const _ChatBubble({required this.message});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -367,12 +436,8 @@ class _ChatBubble extends StatelessWidget {
         children: [
           if (!message.isUser) ...[
             Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
+              width: 28, height: 28,
+              decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
               child: const Icon(Icons.smart_toy_rounded, size: 16, color: Colors.white),
             ),
             const SizedBox(width: 8),
@@ -381,19 +446,30 @@ class _ChatBubble extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: message.isUser ? AppColors.primary : AppColors.darkCard,
+                color: message.isUser
+                    ? AppColors.primary
+                    : (isDark ? AppColors.darkCard : AppColors.lightCard),
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
                   topRight: const Radius.circular(16),
                   bottomLeft: Radius.circular(message.isUser ? 16 : 4),
                   bottomRight: Radius.circular(message.isUser ? 4 : 16),
                 ),
+                boxShadow: message.isUser ? null : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
               child: Text(
                 message.content,
                 style: GoogleFonts.poppins(
                   fontSize: 14,
-                  color: message.isUser ? Colors.white : AppColors.textWhite,
+                  color: message.isUser
+                      ? Colors.white
+                      : (isDark ? AppColors.textWhite : AppColors.textDark),
                   height: 1.4,
                 ),
               ),
@@ -408,33 +484,28 @@ class _ChatBubble extends StatelessWidget {
 class _TypingIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         children: [
           Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(8),
-            ),
+            width: 28, height: 28,
+            decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(8)),
             child: const Icon(Icons.smart_toy_rounded, size: 16, color: Colors.white),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: AppColors.darkCard,
+              color: isDark ? AppColors.darkCard : AppColors.lightCard,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _Dot(delay: 0),
-                const SizedBox(width: 4),
-                _Dot(delay: 200),
-                const SizedBox(width: 4),
+                _Dot(delay: 0), const SizedBox(width: 4),
+                _Dot(delay: 200), const SizedBox(width: 4),
                 _Dot(delay: 400),
               ],
             ),
@@ -454,36 +525,29 @@ class _Dot extends StatefulWidget {
 }
 
 class _DotState extends State<_Dot> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
+  late AnimationController _ctrl;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
+    _ctrl = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
     Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _controller.repeat(reverse: true);
+      if (mounted) _ctrl.repeat(reverse: true);
     });
   }
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  void dispose() { _ctrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _controller,
-      builder: (_, __) => Container(
-        width: 8,
-        height: 8,
+      animation: _ctrl,
+      builder: (_, _) => Container(
+        width: 8, height: 8,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: AppColors.textMuted.withValues(alpha: 0.4 + _controller.value * 0.6),
+          color: AppColors.textMuted.withValues(alpha: 0.4 + _ctrl.value * 0.6),
         ),
       ),
     );
@@ -495,54 +559,57 @@ class _ProposalCard extends StatelessWidget {
   final VoidCallback onPublish;
   final bool isLoading;
 
-  const _ProposalCard({
-    required this.proposal,
-    required this.onPublish,
-    required this.isLoading,
-  });
+  const _ProposalCard({required this.proposal, required this.onPublish, required this.isLoading});
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 12, left: 36),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppColors.primary.withValues(alpha: 0.1),
-            AppColors.primary.withValues(alpha: 0.05),
-          ],
-        ),
+        color: isDark ? AppColors.darkCard : AppColors.lightCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+        boxShadow: [
+          BoxShadow(color: AppColors.primary.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.description_outlined, color: AppColors.primary),
-              const SizedBox(width: 8),
-              Text('Resumen de tu oferta', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.primary)),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.description_outlined, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Resumen de tu oferta',
+                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.primary),
+              ),
             ],
           ),
-          const Divider(height: 24),
-          _proposalRow('Título', proposal['title']),
-          _proposalRow('Categoría', proposal['category']),
-          _proposalRow('Ciudad', proposal['city']),
-          _proposalRow('Paga', '\$${proposal['pay']} ${proposal['pay_type'] ?? ''}'),
-          _proposalRow('Trabajadores', '${proposal['workers_needed'] ?? 1}'),
-          if (proposal['duration'] != null) _proposalRow('Duración', proposal['duration']),
-          if (proposal['schedule'] != null) _proposalRow('Horario', proposal['schedule']),
+          const SizedBox(height: 16),
+          _row('Título', proposal['title']),
+          _row('Categoría', proposal['category']),
+          _row('Ciudad', proposal['city']),
+          _row('Paga', '\$${proposal['pay_amount'] ?? proposal['pay']} ${proposal['pay_type'] ?? ''}'),
+          _row('Trabajadores', '${proposal['workers_needed'] ?? 1}'),
+          if (proposal['duration'] != null) _row('Duración', proposal['duration']),
+          if (proposal['schedule'] != null) _row('Horario', proposal['schedule']),
           if (proposal['description'] != null) ...[
             const SizedBox(height: 8),
             Text('Descripción:', style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textMuted)),
             const SizedBox(height: 4),
             Text(
               proposal['description'] as String? ?? '',
-              style: GoogleFonts.poppins(fontSize: 13),
+              style: GoogleFonts.poppins(fontSize: 13, height: 1.4),
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
             ),
@@ -552,11 +619,9 @@ class _ProposalCard extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: isLoading ? null : onPublish,
-              icon: const Icon(Icons.publish_rounded),
-              label: Text(
-                'Publicar oferta',
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-              ),
+              icon: const Icon(Icons.rocket_launch_rounded),
+              label: Text('Publicar oferta', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
             ),
           ),
         ],
@@ -564,7 +629,7 @@ class _ProposalCard extends StatelessWidget {
     );
   }
 
-  Widget _proposalRow(String label, dynamic value) {
+  Widget _row(String label, dynamic value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -575,7 +640,7 @@ class _ProposalCard extends StatelessWidget {
             child: Text(label, style: GoogleFonts.poppins(fontSize: 12, color: AppColors.textMuted)),
           ),
           Expanded(
-            child: Text('$value', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+            child: Text('${value ?? '—'}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600)),
           ),
         ],
       ),

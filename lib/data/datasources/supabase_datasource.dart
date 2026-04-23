@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'package:mime/mime.dart';
@@ -51,6 +53,13 @@ class SupabaseDatasource {
         if (meta['phone'] != null) 'phone': meta['phone'],
         if (meta['city'] != null) 'city': meta['city'],
         if (meta['company_name'] != null) 'company_name': meta['company_name'],
+        if (meta['cedula'] != null) 'cedula': meta['cedula'],
+        if (meta['cedula_full_name'] != null) 'cedula_full_name': meta['cedula_full_name'],
+        if (meta['cedula_date_birth'] != null) 'cedula_date_birth': meta['cedula_date_birth'],
+        if (meta['cedula_place_birth'] != null) 'cedula_place_birth': meta['cedula_place_birth'],
+        if (meta['cedula_blood_type'] != null) 'cedula_blood_type': meta['cedula_blood_type'],
+        if (meta['cedula_sex'] != null) 'cedula_sex': meta['cedula_sex'],
+        if (meta['cedula_height_cm'] != null) 'cedula_height_cm': meta['cedula_height_cm'],
       });
       return;
     }
@@ -67,6 +76,14 @@ class SupabaseDatasource {
     if ((existing['company_name'] == null || existing['company_name'] == '') && meta['company_name'] != null) {
       updates['company_name'] = meta['company_name'];
     }
+    // Datos de cédula — siempre sincronizar si vienen en metadata y no están en perfil
+    if (existing['cedula'] == null && meta['cedula'] != null) updates['cedula'] = meta['cedula'];
+    if (existing['cedula_full_name'] == null && meta['cedula_full_name'] != null) updates['cedula_full_name'] = meta['cedula_full_name'];
+    if (existing['cedula_date_birth'] == null && meta['cedula_date_birth'] != null) updates['cedula_date_birth'] = meta['cedula_date_birth'];
+    if (existing['cedula_place_birth'] == null && meta['cedula_place_birth'] != null) updates['cedula_place_birth'] = meta['cedula_place_birth'];
+    if (existing['cedula_blood_type'] == null && meta['cedula_blood_type'] != null) updates['cedula_blood_type'] = meta['cedula_blood_type'];
+    if (existing['cedula_sex'] == null && meta['cedula_sex'] != null) updates['cedula_sex'] = meta['cedula_sex'];
+    if (existing['cedula_height_cm'] == null && meta['cedula_height_cm'] != null) updates['cedula_height_cm'] = meta['cedula_height_cm'];
     if (updates.isNotEmpty) {
       await _client.from('profiles').update(updates).eq('id', user.id);
     }
@@ -94,10 +111,90 @@ class SupabaseDatasource {
     return await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
+  // Sends OTP to the given E.164 phone.
+  // Tries updateUser (phone-change flow) first. If Supabase rejects because the
+  // number is already registered in Auth, falls back to signInWithOtp (sms flow).
+  Future<void> sendPhoneOtp(String e164Phone) async {
+    try {
+      await _client.auth.updateUser(UserAttributes(phone: e164Phone));
+    } on AuthException catch (e) {
+      // Supabase rejects updateUser when the number is already confirmed in Auth.
+      // Use signInWithOtp as fallback so we can still send an SMS OTP.
+      final msg = e.message.toLowerCase();
+      if (msg.contains('already') || msg.contains('same') ||
+          msg.contains('registered') || msg.contains('invalid') ||
+          (e.statusCode != null && int.tryParse(e.statusCode!) == 422)) {
+        await _client.auth.signInWithOtp(
+          phone: e164Phone,
+          shouldCreateUser: false,
+        );
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  // Verifies the OTP. Tries phoneChange type first (matches updateUser flow),
+  // then falls back to sms type (matches signInWithOtp flow).
+  Future<void> verifyPhoneOtp(String e164Phone, String token) async {
+    try {
+      await _client.auth.verifyOTP(
+        phone: e164Phone,
+        token: token,
+        type: OtpType.phoneChange,
+      );
+    } on AuthException catch (_) {
+      // Fallback: OTP was sent via signInWithOtp → verify as sms type.
+      await _client.auth.verifyOTP(
+        phone: e164Phone,
+        token: token,
+        type: OtpType.sms,
+      );
+    }
+    final uid = currentUserId;
+    if (uid != null) {
+      await _client
+          .from('profiles')
+          .update({'phone_verified': true, 'phone': e164Phone}).eq('id', uid);
+    }
+  }
+
   // ── PROFILES ──
 
   Future<Map<String, dynamic>> getProfile(String userId) async {
+    final data = await _client.from('profiles').select().eq('id', userId).single();
+    // Sync phone_verified from Supabase Auth truth source.
+    // If Auth has a confirmed phone that matches the profile phone, mark verified.
+    await _syncPhoneVerifiedFromAuth(userId, data);
     return await _client.from('profiles').select().eq('id', userId).single();
+  }
+
+  Future<void> _syncPhoneVerifiedFromAuth(String userId, Map<String, dynamic> profile) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
+
+    final authPhoneConfirmed = user.phoneConfirmedAt != null;
+    final authPhone = user.phone;
+    final profilePhone = profile['phone'] as String?;
+    final alreadyVerified = profile['phone_verified'] as bool? ?? false;
+
+    // If Auth confirms the phone and profile doesn't reflect it yet → fix it.
+    if (authPhoneConfirmed && authPhone != null && authPhone.isNotEmpty && !alreadyVerified) {
+      await _client
+          .from('profiles')
+          .update({'phone_verified': true, 'phone': authPhone})
+          .eq('id', userId);
+      return;
+    }
+
+    // If Auth has a confirmed phone but profile phone differs → update phone too.
+    if (authPhoneConfirmed && authPhone != null && authPhone.isNotEmpty &&
+        profilePhone != authPhone && alreadyVerified) {
+      await _client
+          .from('profiles')
+          .update({'phone': authPhone})
+          .eq('id', userId);
+    }
   }
 
   Future<void> updateProfile(String userId, Map<String, dynamic> data) async {
@@ -247,11 +344,13 @@ class SupabaseDatasource {
   }
 
   Future<Map<String, dynamic>?> getEscrowByJobPost(String jobPostId) async {
-    return await _client
+    final rows = await _client
         .from('escrow_transactions')
         .select()
         .eq('job_post_id', jobPostId)
-        .maybeSingle();
+        .order('created_at', ascending: false)
+        .limit(1);
+    return rows.isEmpty ? null : rows.first;
   }
 
   RealtimeChannel subscribeToEscrow(String jobPostId, void Function(Map<String, dynamic>) onUpdate) {
@@ -488,6 +587,21 @@ class SupabaseDatasource {
     return _client.storage.from(bucket).getPublicUrl(fileName);
   }
 
+  Future<String> uploadXFile(String bucket, XFile xfile) async {
+    final ext = xfile.name.split('.').last.toLowerCase();
+    final fileName = '${_uuid.v4()}.$ext';
+    final bytes = await xfile.readAsBytes();
+    final mimeType = xfile.mimeType ?? lookupMimeType(xfile.name) ?? 'image/jpeg';
+
+    await _client.storage.from(bucket).uploadBinary(
+      fileName,
+      bytes,
+      fileOptions: FileOptions(contentType: mimeType),
+    );
+
+    return _client.storage.from(bucket).getPublicUrl(fileName);
+  }
+
   // ── EMPLOYER STATS ──
 
   Future<Map<String, int>> getEmployerStats(String employerId) async {
@@ -526,7 +640,131 @@ class SupabaseDatasource {
 
   // ── AI PROPOSALS ──
 
+  Future<void> updateJobPostStatus(String jobPostId, String status) async {
+    await _client.from('job_posts').update({'status': status}).eq('id', jobPostId);
+  }
+
   Future<void> saveAiProposal(Map<String, dynamic> data) async {
-    await _client.from('ai_proposals').insert(data);
+    await _client
+        .from('ai_proposals')
+        .upsert(data, onConflict: 'n8n_session_id');
+  }
+
+  // ── WALLET ──
+
+  Future<double> getWalletBalance(String userId) async {
+    final row = await _client
+        .from('profiles')
+        .select('wallet_balance')
+        .eq('id', userId)
+        .single();
+    return (row['wallet_balance'] as num?)?.toDouble() ?? 0;
+  }
+
+  Future<List<Map<String, dynamic>>> getWalletTransactions(String userId) async {
+    return await _client
+        .from('wallet_transactions')
+        .select()
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .limit(50);
+  }
+
+  Future<Map<String, dynamic>> payJobFromWallet(String jobPostId) async {
+    final result = await _client.rpc('pay_job_from_wallet', params: {
+      'p_job_post_id': jobPostId,
+      'p_employer_id': currentUserId!,
+    });
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  Future<Map<String, dynamic>> requestWithdrawal(double amount) async {
+    final result = await _client.rpc('request_withdrawal', params: {
+      'p_user_id': currentUserId!,
+      'p_amount': amount,
+    });
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  Future<void> notifyWithdrawalToOwner({
+    required String workerName,
+    required String workerPhone,
+    required String? workerCedula,
+    required double amount,
+  }) async {
+    try {
+      final profile = await getProfile(currentUserId!);
+      await _client.functions.invoke('notify-withdrawal', body: {
+        'worker_id': currentUserId,
+        'worker_name': workerName,
+        'worker_phone': workerPhone,
+        'worker_cedula': workerCedula,
+        'amount': amount,
+        'worker_email': profile['email'],
+      });
+    } catch (_) {
+      // Notificación best-effort — no bloquea el retiro
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelPendingJob(String jobPostId) async {
+    final result = await _client.rpc('cancel_pending_job', params: {
+      'p_job_post_id': jobPostId,
+      'p_employer_id': currentUserId!,
+    });
+    return Map<String, dynamic>.from(result as Map);
+  }
+
+  Future<Map<String, dynamic>> createWalletTopup({
+    required String reference,
+    required double amount,
+  }) async {
+    return await _client.from('wallet_transactions').insert({
+      'user_id': currentUserId!,
+      'type': 'topup',
+      'amount': amount,
+      'status': 'pending',
+      'reference': reference,
+      'description': 'Recarga de saldo',
+    }).select().single();
+  }
+
+  RealtimeChannel subscribeToWalletBalance(
+    String userId,
+    void Function(double balance) onUpdate,
+  ) {
+    return _client
+        .channel('wallet_balance_$userId')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.update,
+          schema: 'public',
+          table: 'profiles',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'id',
+            value: userId,
+          ),
+          callback: (payload) {
+            final balance = (payload.newRecord['wallet_balance'] as num?)?.toDouble() ?? 0;
+            onUpdate(balance);
+          },
+        )
+        .subscribe();
+  }
+
+  Future<Map<String, dynamic>> ocrCedula(XFile imageFile) async {
+    final bytes = await imageFile.readAsBytes();
+    final base64Image = base64Encode(bytes);
+    final mimeType = imageFile.mimeType ?? 'image/jpeg';
+
+    final result = await _client.functions.invoke('ocr-cedula', body: {
+      'imageBase64': base64Image,
+      'mimeType': mimeType,
+    });
+
+    if (result.data == null) throw Exception('OCR sin respuesta');
+    final data = Map<String, dynamic>.from(result.data as Map);
+    if (data['success'] != true) throw Exception(data['error'] ?? 'Error OCR');
+    return Map<String, dynamic>.from(data['data'] as Map);
   }
 }

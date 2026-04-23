@@ -42,50 +42,73 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.darkBg,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [AppColors.surfaceLowest, AppColors.surfaceLow],
+          ),
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  gradient: AppColors.primaryGradient,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 32,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.handshake_rounded,
+                  size: 56,
+                  color: Colors.white,
+                ),
+              )
+                  .animate()
+                  .scale(
+                    begin: const Offset(0.5, 0.5),
+                    end: const Offset(1, 1),
+                    duration: 600.ms,
+                    curve: Curves.elasticOut,
+                  )
+                  .fadeIn(duration: 400.ms),
+              const SizedBox(height: 24),
+              Text(
+                'Inchamba',
+                style: GoogleFonts.poppins(
+                  fontSize: 36,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textDark,
+                ),
+              )
+                  .animate(delay: 300.ms)
+                  .fadeIn(duration: 500.ms)
+                  .slideY(begin: 0.3, end: 0),
+              const SizedBox(height: 8),
+              Text(
+                'Trabajo informal en Colombia',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: AppColors.textMuted,
+                ),
+              ).animate(delay: 400.ms).fadeIn(duration: 400.ms),
+              const SizedBox(height: 48),
+              const CircularProgressIndicator(
                 color: AppColors.primary,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: const Icon(
-                Icons.handshake_rounded,
-                size: 56,
-                color: Colors.white,
-              ),
-            )
-                .animate()
-                .scale(
-                  begin: const Offset(0.5, 0.5),
-                  end: const Offset(1, 1),
-                  duration: 600.ms,
-                  curve: Curves.elasticOut,
-                )
-                .fadeIn(duration: 400.ms),
-            const SizedBox(height: 24),
-            Text(
-              'Inchamba',
-              style: GoogleFonts.poppins(
-                fontSize: 36,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textWhite,
-              ),
-            )
-                .animate(delay: 300.ms)
-                .fadeIn(duration: 500.ms)
-                .slideY(begin: 0.3, end: 0),
-            const SizedBox(height: 40),
-            const CircularProgressIndicator(
-              color: AppColors.primary,
-              strokeWidth: 2,
-            ).animate(delay: 600.ms).fadeIn(duration: 400.ms),
-          ],
+                strokeWidth: 2,
+              ).animate(delay: 600.ms).fadeIn(duration: 400.ms),
+            ],
+          ),
         ),
       ),
     );

@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -23,7 +22,7 @@ class MarkCompletedScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final descriptionCtrl = useTextEditingController();
-    final evidenceFiles = useState<List<File>>([]);
+    final evidenceFiles = useState<List<XFile>>([]);
     final isSubmitting = useState(false);
 
     Future<void> pickImage() async {
@@ -36,7 +35,7 @@ class MarkCompletedScreen extends HookConsumerWidget {
       final picker = ImagePicker();
       final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1200);
       if (picked != null) {
-        evidenceFiles.value = [...evidenceFiles.value, File(picked.path)];
+        evidenceFiles.value = [...evidenceFiles.value, picked];
       }
     }
 
@@ -54,8 +53,8 @@ class MarkCompletedScreen extends HookConsumerWidget {
 
         // Upload evidence images
         final evidenceUrls = <String>[];
-        for (final file in evidenceFiles.value) {
-          final url = await ds.uploadFile(AppConstants.workEvidenceBucket, file.path, file);
+        for (final xfile in evidenceFiles.value) {
+          final url = await ds.uploadXFile(AppConstants.workEvidenceBucket, xfile);
           evidenceUrls.add(url);
         }
 
@@ -137,14 +136,22 @@ class MarkCompletedScreen extends HookConsumerWidget {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.file(entry.value, width: 100, height: 100, fit: BoxFit.cover),
+                          child: Image.network(
+                            entry.value.path,
+                            width: 100, height: 100, fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              width: 100, height: 100,
+                              decoration: BoxDecoration(color: AppColors.surfaceLow, borderRadius: BorderRadius.circular(12)),
+                              child: const Icon(Icons.image, color: AppColors.textMuted),
+                            ),
+                          ),
                         ),
                         Positioned(
                           top: 4,
                           right: 4,
                           child: GestureDetector(
                             onTap: () {
-                              final newList = List<File>.from(evidenceFiles.value);
+                              final newList = List<XFile>.from(evidenceFiles.value);
                               newList.removeAt(entry.key);
                               evidenceFiles.value = newList;
                             },
@@ -165,7 +172,7 @@ class MarkCompletedScreen extends HookConsumerWidget {
                         width: 100,
                         height: 100,
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.darkBorder, width: 2),
+                          border: Border.all(color: AppColors.surfaceDim, width: 2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Column(

@@ -22,8 +22,8 @@ class JobApplicationModel extends JobApplication {
   });
 
   factory JobApplicationModel.fromJson(Map<String, dynamic> json) {
-    final worker = json['profiles'] as Map<String, dynamic>?;
-    final job = json['job_posts'] as Map<String, dynamic>?;
+    final worker = json['worker'] as Map<String, dynamic>?;
+    final job = json['job_post'] as Map<String, dynamic>?;
     final attachments = json['application_attachments'] as List<dynamic>?;
 
     return JobApplicationModel(

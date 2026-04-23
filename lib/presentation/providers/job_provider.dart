@@ -2,6 +2,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../data/datasources/supabase_datasource.dart';
 import '../../data/models/job_post_model.dart';
 import '../../core/constants/app_constants.dart';
+import 'auth_provider.dart';
 import 'core_providers.dart';
 
 class JobFilters {
@@ -43,7 +44,8 @@ class JobFilters {
     );
   }
 
-  bool get hasFilters => category != null || city != null || payType != null || minPay != null || maxPay != null;
+  // city is excluded — always locked to the user's current GPS city
+  bool get hasFilters => category != null || payType != null || minPay != null || maxPay != null;
 }
 
 final jobFiltersProvider = StateProvider<JobFilters>((ref) => const JobFilters());
@@ -92,13 +94,15 @@ class JobFeedNotifier extends StateNotifier<JobFeedState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final filters = _ref.read(jobFiltersProvider);
+      final profile = _ref.read(currentProfileProvider);
+      final userCity = profile?.city.isNotEmpty == true ? profile!.city : null;
       String? categoryId;
       if (filters.category != null && filters.category!.isNotEmpty) {
         categoryId = await _datasource.resolveCategoryId(filters.category!);
       }
       final data = await _datasource.getJobPosts(
         categoryId: categoryId,
-        city: filters.city,
+        city: userCity,
         payType: filters.payType,
         minPay: filters.minPay,
         maxPay: filters.maxPay,
@@ -119,6 +123,8 @@ class JobFeedNotifier extends StateNotifier<JobFeedState> {
     state = state.copyWith(isLoadingMore: true);
     try {
       final filters = _ref.read(jobFiltersProvider);
+      final profile = _ref.read(currentProfileProvider);
+      final userCity = profile?.city.isNotEmpty == true ? profile!.city : null;
       String? categoryId;
       if (filters.category != null && filters.category!.isNotEmpty) {
         categoryId = await _datasource.resolveCategoryId(filters.category!);
@@ -126,7 +132,7 @@ class JobFeedNotifier extends StateNotifier<JobFeedState> {
       final data = await _datasource.getJobPosts(
         offset: state.jobs.length,
         categoryId: categoryId,
-        city: filters.city,
+        city: userCity,
         payType: filters.payType,
         minPay: filters.minPay,
         maxPay: filters.maxPay,
@@ -169,4 +175,18 @@ final employerJobsProvider = FutureProvider.family<List<JobPostModel>, String?>(
   if (userId == null) return [];
   final data = await ds.getEmployerJobPosts(userId, status: status);
   return data.map((j) => JobPostModel.fromJson(j)).toList();
+});
+
+final employerStatsProvider = FutureProvider<Map<String, int>>((ref) async {
+  final ds = ref.watch(supabaseDatasourceProvider);
+  final userId = ds.currentUserId;
+  if (userId == null) return {};
+  return await ds.getEmployerStats(userId);
+});
+
+final recentApplicantsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final ds = ref.watch(supabaseDatasourceProvider);
+  final userId = ds.currentUserId;
+  if (userId == null) return [];
+  return await ds.getRecentApplicants(userId);
 });

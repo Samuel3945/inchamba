@@ -20,6 +20,7 @@ class JobDetailScreen extends ConsumerWidget {
     final jobAsync = ref.watch(jobDetailProvider(jobPostId));
     final applicationAsync = ref.watch(myApplicationForJobProvider(jobPostId));
     final isEmployer = ref.watch(isEmployerProvider);
+    final profile = ref.watch(currentProfileProvider);
 
     return jobAsync.when(
       loading: () => const Scaffold(
@@ -227,7 +228,7 @@ class JobDetailScreen extends ConsumerWidget {
                           );
                         },
                         loading: () => const SizedBox.shrink(),
-                        error: (_, __) => const SizedBox.shrink(),
+                        error: (_, _) => const SizedBox.shrink(),
                       ),
                       const SizedBox(height: 100), // Space for FAB
                     ],
@@ -250,13 +251,42 @@ class JobDetailScreen extends ConsumerWidget {
                       );
                     }
                     return FloatingActionButton.extended(
-                      onPressed: () => context.push('/job/$jobPostId/apply'),
+                      onPressed: () {
+                        if (profile != null && !profile.phoneVerified) {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: Text('Teléfono no verificado',
+                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                              content: Text(
+                                'Para postularte necesitas verificar tu número de teléfono. Agrégalo desde tu perfil.',
+                                style: GoogleFonts.poppins(fontSize: 14),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancelar'),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    context.push('/edit-profile');
+                                  },
+                                  child: const Text('Ir al perfil'),
+                                ),
+                              ],
+                            ),
+                          );
+                          return;
+                        }
+                        context.push('/job/$jobPostId/apply');
+                      },
                       label: Text(AppStrings.applyNow, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
                       icon: const Icon(Icons.send_rounded),
                     );
                   },
                   loading: () => null,
-                  error: (_, __) => null,
+                  error: (_, _) => null,
                 ),
           floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         );

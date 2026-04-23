@@ -22,7 +22,7 @@ class ConversationsScreen extends ConsumerWidget {
       body: convsAsync.when(
         loading: () => ListView.builder(
           itemCount: 6,
-          itemBuilder: (_, _i) => const ShimmerListTile(),
+          itemBuilder: (_, _) => const ShimmerListTile(),
         ),
         error: (e, _) => Center(child: Text('Error: $e')),
         data: (conversations) {

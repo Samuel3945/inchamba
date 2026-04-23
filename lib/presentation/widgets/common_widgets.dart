@@ -291,8 +291,9 @@ class StatusChip extends StatelessWidget {
 class LoadingOverlay extends StatelessWidget {
   final bool isLoading;
   final Widget child;
+  final String? loadingText;
 
-  const LoadingOverlay({super.key, required this.isLoading, required this.child});
+  const LoadingOverlay({super.key, required this.isLoading, required this.child, this.loadingText});
 
   @override
   Widget build(BuildContext context) {
@@ -302,8 +303,20 @@ class LoadingOverlay extends StatelessWidget {
         if (isLoading)
           Container(
             color: Colors.black54,
-            child: const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: AppColors.primary),
+                  if (loadingText != null) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      loadingText!,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
       ],

@@ -14,9 +14,25 @@ class AppConstants {
     'N8N_JOB_PROPOSAL_WEBHOOK',
     defaultValue: '/webhook/fe6cf5c1-7313-463a-a3d9-9e9b54ff4b84',
   );
+  static const String n8nWithdrawalWebhook = String.fromEnvironment(
+    'N8N_WITHDRAWAL_WEBHOOK',
+    defaultValue: '/webhook/inchamba-withdrawal-request',
+  );
+  static const String n8nCedulaAdvisorWebhook = String.fromEnvironment(
+    'N8N_CEDULA_ADVISOR_WEBHOOK',
+    defaultValue: '/webhook/inchamba-cedula-advisor',
+  );
 
-  // Bold
-  static const String boldPaymentUrl = String.fromEnvironment('BOLD_PAYMENT_URL');
+  // Wompi
+  static const String wompiPublicKey = String.fromEnvironment(
+    'WOMPI_PUBLIC_KEY',
+    defaultValue: '',
+  );
+  static const String wompiIntegrityKey = String.fromEnvironment(
+    'WOMPI_INTEGRITY_KEY',
+    defaultValue: '',
+  );
+  static const String wompiCheckoutUrl = 'https://checkout.wompi.co/p/';
 
   // Storage buckets
   static const String avatarsBucket = 'avatars';
@@ -73,6 +89,27 @@ class AppConstants {
     'Arauca',
     'San Andrés',
   ];
+
+  static String? matchCity(String? geocodedName) {
+    if (geocodedName == null || geocodedName.isEmpty) return null;
+    String norm(String s) => s
+        .toLowerCase()
+        .replaceAll(RegExp(r'[áàäâã]'), 'a')
+        .replaceAll(RegExp(r'[éèëê]'), 'e')
+        .replaceAll(RegExp(r'[íìïî]'), 'i')
+        .replaceAll(RegExp(r'[óòöôõ]'), 'o')
+        .replaceAll(RegExp(r'[úùüû]'), 'u')
+        .replaceAll(RegExp(r'[ñ]'), 'n')
+        .trim();
+    final input = norm(geocodedName);
+    for (final city in colombianCities) {
+      final cityNorm = norm(city);
+      if (input == cityNorm || input.startsWith(cityNorm) || cityNorm.startsWith(input)) {
+        return city;
+      }
+    }
+    return null;
+  }
 
   // Job categories
   static const Map<String, String> jobCategories = {

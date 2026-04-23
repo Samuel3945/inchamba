@@ -116,10 +116,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     required String email,
     required String password,
     required String fullName,
-    required String phone,
+    String phone = '',
     required String city,
     required String role,
-    String? companyName,
+    required String cedula,
+    Map<String, dynamic>? cedulaExtra,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -131,7 +132,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
           'phone': phone,
           'city': city,
           'role': role,
-          if (companyName != null) 'company_name': companyName,
+          if (cedula.isNotEmpty) 'cedula': cedula,
+          if (cedulaExtra != null) ...cedulaExtra,
         },
       );
       // Don't auto-authenticate — user must verify email first

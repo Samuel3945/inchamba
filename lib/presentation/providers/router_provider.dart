@@ -17,8 +17,7 @@ import '../screens/employer/payment/payment_screen.dart';
 import '../screens/employer/my_offers/my_offers_screen.dart';
 import '../screens/employer/offer_detail/employer_offer_detail_screen.dart';
 import '../screens/employer/confirm_work/confirm_work_screen.dart';
-import '../screens/shared/messaging/conversations_screen.dart';
-import '../screens/shared/messaging/chat_screen.dart';
+import '../screens/employer/wallet/wallet_screen.dart';
 import '../screens/shared/notifications/notifications_screen.dart';
 import '../screens/shared/profile/profile_screen.dart';
 import '../screens/shared/profile/edit_profile_screen.dart';
@@ -26,6 +25,10 @@ import '../screens/shared/profile/public_profile_screen.dart';
 import '../screens/shared/ratings/rating_screen.dart';
 import '../screens/shared/disputes/dispute_screen.dart';
 import '../screens/shared/settings/settings_screen.dart';
+import '../screens/guest/guest_feed_screen.dart';
+import '../screens/shared/cedula_ocr/cedula_ocr_screen.dart';
+import '../screens/shared/cedula_advisor/cedula_advisor_screen.dart';
+import '../screens/shared/profile/phone_verify_screen.dart';
 import '../widgets/shell_scaffold.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -44,7 +47,8 @@ class _RouterNotifier extends ChangeNotifier {
     final isAuthRoute = loc == '/login' ||
         loc == '/register' ||
         loc == '/splash' ||
-        loc == '/forgot-password';
+        loc == '/forgot-password' ||
+        loc == '/browse';
 
     debugPrint('[ROUTER] redirect: loc=$loc, status=${authState.status}');
 
@@ -100,6 +104,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/forgot-password',
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
+      GoRoute(
+        path: '/browse',
+        builder: (context, state) => const GuestFeedScreen(),
+      ),
       // Worker shell
       ShellRoute(
         navigatorKey: _shellNavigatorKey,
@@ -115,10 +123,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/worker/applications',
             builder: (context, state) => const MyApplicationsScreen(),
-          ),
-          GoRoute(
-            path: '/worker/messages',
-            builder: (context, state) => const ConversationsScreen(),
           ),
           GoRoute(
             path: '/worker/profile',
@@ -140,10 +144,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/employer/offers',
             builder: (context, state) => const MyOffersScreen(),
-          ),
-          GoRoute(
-            path: '/employer/messages',
-            builder: (context, state) => const ConversationsScreen(),
           ),
           GoRoute(
             path: '/employer/profile',
@@ -202,12 +202,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-        path: '/chat/:conversationId',
+        path: '/employer/wallet',
         parentNavigatorKey: _rootNavigatorKey,
-        builder: (context, state) => ChatScreen(
-          conversationId: state.pathParameters['conversationId']!,
-          otherUserName: state.uri.queryParameters['name'] ?? '',
-        ),
+        builder: (context, state) => const WalletScreen(),
+      ),
+      GoRoute(
+        path: '/worker/wallet',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const WalletScreen(),
       ),
       GoRoute(
         path: '/notifications',
@@ -246,6 +248,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/cedula-ocr',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const CedulaOCRScreen(),
+      ),
+      GoRoute(
+        path: '/verify-phone',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const PhoneVerifyScreen(),
+      ),
+      GoRoute(
+        path: '/cedula-advisor',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const CedulaAdvisorScreen(),
       ),
     ],
   );

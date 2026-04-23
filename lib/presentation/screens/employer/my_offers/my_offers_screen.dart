@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../providers/core_providers.dart';
 import '../../../providers/job_provider.dart';
 import '../../../providers/notification_provider.dart';
 import '../../../widgets/common_widgets.dart';
@@ -72,7 +73,7 @@ class _OfferList extends ConsumerWidget {
     return jobsAsync.when(
       loading: () => ListView.builder(
         itemCount: 3,
-        itemBuilder: (_, _i) => const ShimmerJobCard(),
+        itemBuilder: (_, _) => const ShimmerJobCard(),
       ),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (jobs) {
@@ -90,9 +91,12 @@ class _OfferList extends ConsumerWidget {
             itemCount: jobs.length,
             itemBuilder: (context, index) {
               final job = jobs[index];
+              final isPending = job.status == 'pending_payment';
               return Card(
                 child: InkWell(
-                  onTap: () => context.push('/employer/offer/${job.id}'),
+                  onTap: isPending
+                      ? () => context.push('/payment/${job.id}')
+                      : () => context.push('/employer/offer/${job.id}'),
                   borderRadius: BorderRadius.circular(16),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -101,7 +105,10 @@ class _OfferList extends ConsumerWidget {
                       children: [
                         Row(
                           children: [
-                            Text(Formatters.categoryEmoji(job.categoryIcon ?? job.categoryName), style: const TextStyle(fontSize: 24)),
+                            Text(
+                              Formatters.categoryEmoji(job.categoryIcon ?? job.categoryName),
+                              style: const TextStyle(fontSize: 24),
+                            ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
@@ -128,7 +135,11 @@ class _OfferList extends ConsumerWidget {
                             const SizedBox(width: 4),
                             Text(
                               Formatters.currency(job.pay * job.workersNeeded),
-                              style: GoogleFonts.poppins(fontSize: 13, color: AppColors.success, fontWeight: FontWeight.w600),
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                color: AppColors.success,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             const Spacer(),
                             Text(
@@ -137,6 +148,36 @@ class _OfferList extends ConsumerWidget {
                             ),
                           ],
                         ),
+                        if (isPending) ...[
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _confirmCancel(context, ref, job.id, job.title),
+                                  icon: const Icon(Icons.delete_outline, size: 16),
+                                  label: const Text('Eliminar'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.error,
+                                    side: const BorderSide(color: AppColors.error),
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => context.push('/payment/${job.id}'),
+                                  icon: const Icon(Icons.payment_rounded, size: 16),
+                                  label: const Text('Pagar'),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -147,6 +188,53 @@ class _OfferList extends ConsumerWidget {
         );
       },
     );
+  }
+
+  Future<void> _confirmCancel(
+    BuildContext context,
+    WidgetRef ref,
+    String jobId,
+    String title,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar oferta'),
+        content: Text('¿Eliminar "$title"? Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final ds = ref.read(supabaseDatasourceProvider);
+      final result = await ds.cancelPendingJob(jobId);
+      if (result['success'] == true) {
+        ref.invalidate(employerJobsProvider('pending_payment'));
+        ref.invalidate(employerJobsProvider('cancelled'));
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Oferta eliminada'), backgroundColor: AppColors.success),
+          );
+        }
+      } else {
+        throw Exception(result['error']);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
   }
 
   String _statusLabel(String status) {

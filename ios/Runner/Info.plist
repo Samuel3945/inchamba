@@ -51,6 +51,16 @@
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>mailto</string>
+	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Inchamba necesita el micrófono para grabar tu voz y crear ofertas de trabajo rápidamente.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Inchamba usa el reconocimiento de voz para transcribir tus mensajes y ayudarte a crear ofertas más rápido.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Inchamba usa tu ubicación para mostrarte ofertas de trabajo en tu ciudad.</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>

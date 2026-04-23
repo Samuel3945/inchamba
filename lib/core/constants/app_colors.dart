@@ -3,37 +3,62 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary
-  static const Color primary = Color(0xFFFF6B35);
-  static const Color primaryLight = Color(0xFFFF8A5C);
-  static const Color primaryDark = Color(0xFFE55A25);
+  // Primary — "Trust Anchor" deep blue
+  static const Color primary = Color(0xFF0040A1);
+  static const Color primaryLight = Color(0xFF0056D2);
+  static const Color primaryDark = Color(0xFF002D7A);
 
-  // Dark theme
-  static const Color darkBg = Color(0xFF1A1A1A);
-  static const Color darkSurface = Color(0xFF2A2A2A);
-  static const Color darkCard = Color(0xFF333333);
-  static const Color darkBorder = Color(0xFF444444);
+  // Progress green — "Momentum Signal"
+  static const Color accent = Color(0xFF006E2A);
+  static const Color accentLight = Color(0xFF5CFD80);
+  static const Color accentContainer = Color(0xFF006E35);
 
-  // Light theme
-  static const Color lightBg = Color(0xFFF5F5F5);
-  static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightCard = Color(0xFFFFFFFF);
-  static const Color lightBorder = Color(0xFFE0E0E0);
+  // Surfaces — light
+  static const Color surface = Color(0xFFFAF8FF);
+  static const Color surfaceLow = Color(0xFFF2F3FE);
+  static const Color surfaceLowest = Color(0xFFFFFFFF);
+  static const Color surfaceDim = Color(0xFFD9D9E4);
+
+  // Surfaces — dark
+  static const Color darkBg = Color(0xFF12131A);
+  static const Color darkSurface = Color(0xFF1E2030);
+  static const Color darkCard = Color(0xFF262840);
+  static const Color darkBorder = Color(0xFF363850);
+
+  // Legacy aliases (used widely across screens)
+  static const Color lightBg = surfaceLow;
+  static const Color lightSurface = surfaceLowest;
+  static const Color lightCard = surfaceLowest;
+  static const Color lightBorder = surfaceDim;
 
   // Text
   static const Color textWhite = Color(0xFFFFFFFF);
-  static const Color textLight = Color(0xFFB0B0B0);
-  static const Color textDark = Color(0xFF1A1A1A);
-  static const Color textMuted = Color(0xFF888888);
+  static const Color textLight = Color(0xFF6B7280);
+  static const Color textDark = Color(0xFF191B23);
+  static const Color textMuted = Color(0xFF9CA3AF);
 
-  // Status
-  static const Color success = Color(0xFF4CAF50);
-  static const Color warning = Color(0xFFFFC107);
-  static const Color error = Color(0xFFE53935);
-  static const Color info = Color(0xFF2196F3);
+  // Semantic
+  static const Color success = Color(0xFF006E2A);
+  static const Color successLight = Color(0xFF5CFD80);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color error = Color(0xFFDC2626);
+  static const Color info = Color(0xFF0056D2);
 
   // Misc
-  static const Color star = Color(0xFFFFD700);
-  static const Color escrow = Color(0xFF7C4DFF);
-  static const Color urgent = Color(0xFFFF1744);
+  static const Color star = Color(0xFFF59E0B);
+  static const Color escrow = Color(0xFF7C3AED);
+  static const Color urgent = Color(0xFFDC2626);
+
+  // Gradient helpers
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [primary, primaryLight],
+  );
+
+  static const LinearGradient accentGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [accent, accentContainer],
+  );
 }

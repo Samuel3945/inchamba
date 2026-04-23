@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_strings.dart';
 import '../../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/common_widgets.dart';
@@ -40,48 +39,51 @@ class LoginScreen extends HookConsumerWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.darkBg,
+      backgroundColor: AppColors.surfaceLowest,
       body: LoadingOverlay(
         isLoading: isLoading.value,
         child: SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Form(
               key: formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 40),
-                  Center(
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(
-                        Icons.handshake_rounded,
-                        size: 44,
-                        color: Colors.white,
-                      ),
+                  const SizedBox(height: 48),
+                  // Logo
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.25),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
                     ),
+                    child: const Icon(Icons.handshake_rounded, size: 40, color: Colors.white),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
                   Text(
-                    'Bienvenido a Inchamba',
+                    'Bienvenido a\nInchamba',
                     style: GoogleFonts.poppins(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textWhite,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textDark,
+                      height: 1.15,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Inicia sesión o crea una cuenta para continuar',
+                    'Encuentra trabajo o ayuda en minutos',
                     style: GoogleFonts.poppins(
-                      fontSize: 14,
-                      color: AppColors.textLight,
+                      fontSize: 15,
+                      color: AppColors.textMuted,
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -90,32 +92,41 @@ class LoginScreen extends HookConsumerWidget {
                     keyboardType: TextInputType.emailAddress,
                     validator: Validators.email,
                     decoration: const InputDecoration(
-                      labelText: AppStrings.email,
+                      labelText: 'Correo electrónico',
                       prefixIcon: Icon(Icons.email_outlined),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   TextFormField(
                     controller: passwordCtrl,
                     obscureText: obscurePassword.value,
                     validator: Validators.password,
                     decoration: InputDecoration(
-                      labelText: AppStrings.password,
+                      labelText: 'Contraseña',
                       prefixIcon: const Icon(Icons.lock_outlined),
                       suffixIcon: IconButton(
-                        icon: Icon(obscurePassword.value
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined),
+                        icon: Icon(
+                          obscurePassword.value
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                        ),
                         onPressed: () => obscurePassword.value = !obscurePassword.value,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () => context.push('/forgot-password'),
-                      child: const Text(AppStrings.forgotPassword),
+                      child: Text(
+                        '¿Olvidaste tu contraseña?',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -123,23 +134,52 @@ class LoginScreen extends HookConsumerWidget {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: login,
-                      child: const Text(AppStrings.login),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                      ),
+                      child: Text(
+                        'Iniciar sesión',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 28),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        AppStrings.dontHaveAccount,
-                        style: GoogleFonts.poppins(color: AppColors.textLight, fontSize: 14),
+                        '¿No tienes cuenta?',
+                        style: GoogleFonts.poppins(
+                          color: AppColors.textMuted,
+                          fontSize: 14,
+                        ),
                       ),
                       TextButton(
                         onPressed: () => context.go('/register'),
-                        child: const Text(AppStrings.register),
+                        child: Text(
+                          'Regístrate',
+                          style: GoogleFonts.poppins(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14,
+                          ),
+                        ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    onPressed: () => context.go('/browse'),
+                    icon: const Icon(Icons.search_rounded, size: 18),
+                    label: Text(
+                      'Ver ofertas disponibles sin registrarse',
+                      style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textMuted),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
                 ],
               ),
             ),

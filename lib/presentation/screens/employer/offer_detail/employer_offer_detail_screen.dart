@@ -93,7 +93,7 @@ class EmployerOfferDetailScreen extends ConsumerWidget {
                 // Work completions pending
                 completionsAsync.when(
                   loading: () => const SizedBox.shrink(),
-                  error: (_, _e) => const SizedBox.shrink(),
+                  error: (_, _) => const SizedBox.shrink(),
                   data: (completions) {
                     final pending = completions.where((c) => c.isPending).toList();
                     if (pending.isEmpty) return const SizedBox.shrink();
@@ -175,7 +175,7 @@ class EmployerOfferDetailScreen extends ConsumerWidget {
                         padding: const EdgeInsets.all(24),
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.darkBorder),
+                          border: Border.all(color: AppColors.surfaceDim),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Center(

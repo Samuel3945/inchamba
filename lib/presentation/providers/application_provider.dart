@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../data/datasources/supabase_datasource.dart';
 import '../../data/models/job_application_model.dart';
 import '../../core/constants/app_constants.dart';
@@ -36,7 +36,8 @@ class ApplicationSubmitter {
   Future<void> submit({
     required String jobPostId,
     required String coverLetter,
-    List<File> attachments = const [],
+    List<XFile> attachments = const [],
+    String? audioUrl,
   }) async {
     final userId = _datasource.currentUserId!;
     final app = await _datasource.createApplication({
@@ -44,13 +45,13 @@ class ApplicationSubmitter {
       'worker_id': userId,
       'cover_letter': coverLetter,
       'status': 'pending',
+      'audio_url': ?audioUrl,
     });
 
-    for (final file in attachments) {
-      final url = await _datasource.uploadFile(
+    for (final xfile in attachments) {
+      final url = await _datasource.uploadXFile(
         AppConstants.applicationAttachmentsBucket,
-        file.path,
-        file,
+        xfile,
       );
       await _datasource.createAttachment(app['id'] as String, url);
     }
