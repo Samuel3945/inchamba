@@ -52,7 +52,7 @@ class EmployerOfferDetailScreen extends ConsumerWidget {
                     children: [
                       Row(
                         children: [
-                          Text(Formatters.categoryEmoji(job.categoryIcon ?? job.categoryName), style: const TextStyle(fontSize: 32)),
+                          Icon(Formatters.categoryIconData(job.categoryIcon ?? job.categoryName), color: AppColors.primary, size: 32),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(

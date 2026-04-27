@@ -91,7 +91,7 @@ class EmployerDashboardScreen extends ConsumerWidget {
                     balanceAsync: balanceAsync,
                     isDark: isDark,
                     onTap: () => context.push('/employer/wallet'),
-                    onRecharge: () => context.push('/payment/recharge'),
+                    onRecharge: () => context.push('/employer/wallet'),
                   ),
                   const SizedBox(height: 24),
 
@@ -515,9 +515,10 @@ class _ActiveOfferCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              Formatters.categoryEmoji(job.categoryIcon ?? job.categoryName),
-              style: const TextStyle(fontSize: 28),
+            Icon(
+              Formatters.categoryIconData(job.categoryIcon ?? job.categoryName),
+              color: AppColors.primary,
+              size: 28,
             ),
             const SizedBox(height: 8),
             Text(

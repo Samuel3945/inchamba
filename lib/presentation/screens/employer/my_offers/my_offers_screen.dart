@@ -105,9 +105,10 @@ class _OfferList extends ConsumerWidget {
                       children: [
                         Row(
                           children: [
-                            Text(
-                              Formatters.categoryEmoji(job.categoryIcon ?? job.categoryName),
-                              style: const TextStyle(fontSize: 24),
+                            Icon(
+                              Formatters.categoryIconData(job.categoryIcon ?? job.categoryName),
+                              color: AppColors.primary,
+                              size: 22,
                             ),
                             const SizedBox(width: 12),
                             Expanded(

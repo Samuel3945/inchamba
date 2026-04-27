@@ -18,8 +18,7 @@ String _wompiIntegrityHash(String reference, int amountCents, String integrityKe
   return sha256.convert(utf8.encode(raw)).toString();
 }
 
-// $50 platform fee per each $50,000 recharged (0.1%)
-double _platformFee(double amount) => ((amount / 50000).ceil() * 50).toDouble();
+double _platformFee(double amount) => (amount * 0.0001).ceilToDouble();
 
 class WalletScreen extends HookConsumerWidget {
   const WalletScreen({super.key});
@@ -132,6 +131,15 @@ class WalletScreen extends HookConsumerWidget {
   }
 
   Future<void> _launchTopUp(BuildContext context, WidgetRef ref, double amount) async {
+    if (AppConstants.wompiPublicKey.isEmpty || AppConstants.wompiIntegrityKey.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pagos no configurados. Contacta soporte.')),
+        );
+      }
+      return;
+    }
+
     final ds = ref.read(supabaseDatasourceProvider);
     final fee = _platformFee(amount);
     final totalCharge = amount + fee;
@@ -154,6 +162,10 @@ class WalletScreen extends HookConsumerWidget {
 
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo abrir la pasarela de pago.')),
+      );
     }
 
     ref.invalidate(walletTransactionsProvider);

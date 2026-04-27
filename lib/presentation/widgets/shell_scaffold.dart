@@ -18,8 +18,9 @@ class ShellScaffold extends ConsumerWidget {
     final location = GoRouterState.of(context).matchedLocation;
     final prefix = isEmployer ? '/employer' : '/worker';
     if (location == prefix) return 0;
-    if (location == '$prefix/${isEmployer ? "offers" : "applications"}') return 1;
-    if (location == '$prefix/profile') return 2;
+    // Worker: Dashboard(0) | Progreso(1) | Perfil(2)
+    if (!isEmployer && location == '/worker/progress') return 1;
+    if (location == '$prefix/profile') return isEmployer ? 1 : 2;
     return 0;
   }
 
@@ -28,8 +29,18 @@ class ShellScaffold extends ConsumerWidget {
     final index = _currentIndex(context);
     final prefix = isEmployer ? '/employer' : '/worker';
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
     final navBg = isDark ? AppColors.darkSurface : AppColors.surfaceLowest;
+
+    final items = isEmployer
+        ? [
+            _NavItem(icon: Icons.dashboard_rounded, label: 'Dashboard', selected: index == 0, onTap: () => context.go(prefix)),
+            _NavItem(icon: Icons.person_rounded, label: 'Perfil', selected: index == 1, onTap: () => context.go('$prefix/profile')),
+          ]
+        : [
+            _NavItem(icon: Icons.home_rounded, label: 'Inicio', selected: index == 0, onTap: () => context.go(prefix)),
+            _NavItem(icon: Icons.school_rounded, label: 'Progreso', selected: index == 1, onTap: () => context.go('$prefix/progress')),
+            _NavItem(icon: Icons.person_rounded, label: 'Perfil', selected: index == 2, onTap: () => context.go('$prefix/profile')),
+          ];
 
     return Scaffold(
       body: child,
@@ -49,28 +60,7 @@ class ShellScaffold extends ConsumerWidget {
           top: false,
           child: SizedBox(
             height: 64,
-            child: Row(
-              children: [
-                _NavItem(
-                  icon: isEmployer ? Icons.dashboard_rounded : Icons.work_rounded,
-                  label: isEmployer ? 'Dashboard' : 'Trabajos',
-                  selected: index == 0,
-                  onTap: () => context.go(prefix),
-                ),
-                _NavItem(
-                  icon: isEmployer ? Icons.list_alt_rounded : Icons.assignment_rounded,
-                  label: isEmployer ? 'Ofertas' : 'Mis trabajos',
-                  selected: index == 1,
-                  onTap: () => context.go('$prefix/${isEmployer ? "offers" : "applications"}'),
-                ),
-                _NavItem(
-                  icon: Icons.person_rounded,
-                  label: 'Perfil',
-                  selected: index == 2,
-                  onTap: () => context.go('$prefix/profile'),
-                ),
-              ],
-            ),
+            child: Row(children: items),
           ),
         ),
       ),
@@ -94,9 +84,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedColor = AppColors.primary;
-    final unselectedColor = AppColors.textMuted;
-    final color = selected ? selectedColor : unselectedColor;
+    final color = selected ? AppColors.primary : AppColors.textMuted;
 
     return Expanded(
       child: GestureDetector(

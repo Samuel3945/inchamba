@@ -170,8 +170,8 @@ class CreateOfferScreen extends HookConsumerWidget {
           }
         },
         localeId: 'es_CO',
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
+        listenFor: const Duration(minutes: 3),
+        pauseFor: const Duration(seconds: 6),
         listenOptions: SpeechListenOptions(
           cancelOnError: true,
           partialResults: true,
@@ -186,27 +186,24 @@ class CreateOfferScreen extends HookConsumerWidget {
       final profile = ref.read(currentProfileProvider);
       if (profile == null) return;
 
-      if (!profile.phoneVerified) {
+      if (!profile.hasCedula || profile.avatarUrl == null || !profile.phoneVerified) {
         if (context.mounted) {
           await showDialog(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: Text('Teléfono no verificado',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+              title: Text('Perfil incompleto', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
               content: Text(
-                'Para publicar una oferta necesitas verificar tu número de teléfono. Agrégalo y verifica desde tu perfil.',
+                'Para publicar una oferta necesitas:\n'
+                '${!profile.hasCedula ? "• Agregar tu cédula de ciudadanía\n" : ""}'
+                '${profile.avatarUrl == null ? "• Subir una foto de perfil\n" : ""}'
+                '${!profile.phoneVerified ? "• Verificar tu teléfono\n" : ""}'
+                '\nPuedes hacerlo desde tu perfil.',
                 style: GoogleFonts.poppins(fontSize: 14),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancelar'),
-                ),
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    context.push('/edit-profile');
-                  },
+                  onPressed: () { Navigator.pop(ctx); context.push('/edit-profile'); },
                   child: const Text('Ir al perfil'),
                 ),
               ],
@@ -215,6 +212,7 @@ class CreateOfferScreen extends HookConsumerWidget {
         }
         return;
       }
+
 
       final ds = ref.read(supabaseDatasourceProvider);
       isLoading.value = true;
