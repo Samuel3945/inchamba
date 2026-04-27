@@ -20,7 +20,7 @@ class AppConstants {
   );
   static const String n8nCedulaAdvisorWebhook = String.fromEnvironment(
     'N8N_CEDULA_ADVISOR_WEBHOOK',
-    defaultValue: '/webhook/inchamba-cedula-advisor',
+    defaultValue: '/webhook/cedula-advisor',
   );
 
   // Wompi
@@ -36,6 +36,7 @@ class AppConstants {
 
   // Storage buckets
   static const String avatarsBucket = 'avatars';
+  static const String cedulaImagesBucket = 'cedula-images';
   static const String applicationAttachmentsBucket = 'application-attachments';
   static const String workEvidenceBucket = 'work-evidence';
   static const String audioProposalsBucket = 'audio-proposals';
@@ -48,7 +49,7 @@ class AppConstants {
   static const int paymentPollingSeconds = 15;
 
   // Audio
-  static const int maxAudioDurationSeconds = 120;
+  static const int maxAudioDurationSeconds = 180;
 
   // Attachments
   static const int maxApplicationImages = 5;

@@ -115,6 +115,17 @@ class SupabaseDatasource {
   // Tries updateUser (phone-change flow) first. If Supabase rejects because the
   // number is already registered in Auth, falls back to signInWithOtp (sms flow).
   Future<void> sendPhoneOtp(String e164Phone) async {
+    // Reject if the number is already verified by a different user.
+    final existing = await _client
+        .from('profiles')
+        .select('id')
+        .eq('phone', e164Phone)
+        .eq('phone_verified', true)
+        .maybeSingle();
+    if (existing != null && existing['id'] != currentUserId) {
+      throw Exception('Este número ya está registrado por otro usuario.');
+    }
+
     try {
       await _client.auth.updateUser(UserAttributes(phone: e164Phone));
     } on AuthException catch (e) {
@@ -132,6 +143,31 @@ class SupabaseDatasource {
         rethrow;
       }
     }
+  }
+
+  Future<void> revokePhoneVerification() async {
+    final uid = currentUserId;
+    if (uid == null) return;
+    await _client.from('profiles').update({
+      'phone_verified': false,
+      'phone': null,
+    }).eq('id', uid);
+  }
+
+  Future<void> saveRegistrationPhotos({
+    required String avatarUrl,
+    required String cedulaFrontUrl,
+    required String cedulaBackUrl,
+  }) async {
+    final uid = currentUserId;
+    if (uid == null) return;
+    final lockedUntil = DateTime.now().add(const Duration(days: 180)).toIso8601String();
+    await _client.from('profiles').update({
+      'avatar_url': avatarUrl,
+      'cedula_front_url': cedulaFrontUrl,
+      'cedula_back_url': cedulaBackUrl,
+      'avatar_locked_until': lockedUntil,
+    }).eq('id', uid);
   }
 
   // Verifies the OTP. Tries phoneChange type first (matches updateUser flow),
@@ -178,21 +214,18 @@ class SupabaseDatasource {
     final profilePhone = profile['phone'] as String?;
     final alreadyVerified = profile['phone_verified'] as bool? ?? false;
 
-    // If Auth confirms the phone and profile doesn't reflect it yet → fix it.
-    if (authPhoneConfirmed && authPhone != null && authPhone.isNotEmpty && !alreadyVerified) {
-      await _client
-          .from('profiles')
-          .update({'phone_verified': true, 'phone': authPhone})
-          .eq('id', userId);
-      return;
-    }
+    // Si el perfil no tiene teléfono (fue revocado), no re-sincronizar desde Auth.
+    // Esto evita que el revoke sea sobreescrito en el próximo getProfile.
+    if (profilePhone == null || profilePhone.isEmpty) return;
 
-    // If Auth has a confirmed phone but profile phone differs → update phone too.
+    // Auth confirma el teléfono y el perfil no lo refleja → sincronizar.
+    // Solo si el teléfono en Auth coincide con el del perfil (evita sobreescribir
+    // cuando el usuario está en proceso de cambiar número).
     if (authPhoneConfirmed && authPhone != null && authPhone.isNotEmpty &&
-        profilePhone != authPhone && alreadyVerified) {
+        !alreadyVerified && authPhone == profilePhone) {
       await _client
           .from('profiles')
-          .update({'phone': authPhone})
+          .update({'phone_verified': true})
           .eq('id', userId);
     }
   }
@@ -588,10 +621,11 @@ class SupabaseDatasource {
   }
 
   Future<String> uploadXFile(String bucket, XFile xfile) async {
-    final ext = xfile.name.split('.').last.toLowerCase();
-    final fileName = '${_uuid.v4()}.$ext';
     final bytes = await xfile.readAsBytes();
     final mimeType = xfile.mimeType ?? lookupMimeType(xfile.name) ?? 'image/jpeg';
+    // Derivar extensión desde mimeType para evitar nombres sin extensión de la cámara
+    final ext = _extFromMime(mimeType);
+    final fileName = '${_uuid.v4()}.$ext';
 
     await _client.storage.from(bucket).uploadBinary(
       fileName,
@@ -600,6 +634,20 @@ class SupabaseDatasource {
     );
 
     return _client.storage.from(bucket).getPublicUrl(fileName);
+  }
+
+  String _extFromMime(String mime) {
+    switch (mime) {
+      case 'image/jpeg': return 'jpg';
+      case 'image/png':  return 'png';
+      case 'image/webp': return 'webp';
+      case 'image/heic': return 'heic';
+      case 'audio/aac':  return 'm4a';
+      case 'audio/mpeg': return 'mp3';
+      default:
+        final parts = mime.split('/');
+        return parts.length == 2 ? parts.last : 'bin';
+    }
   }
 
   // ── EMPLOYER STATS ──
@@ -752,19 +800,59 @@ class SupabaseDatasource {
         .subscribe();
   }
 
-  Future<Map<String, dynamic>> ocrCedula(XFile imageFile) async {
+  Future<Map<String, dynamic>> ocrCedula(XFile imageFile, {String side = 'front'}) async {
     final bytes = await imageFile.readAsBytes();
     final base64Image = base64Encode(bytes);
-    final mimeType = imageFile.mimeType ?? 'image/jpeg';
+    // Determinar mimeType: preferir el del archivo, caer a jpeg
+    final mimeType = imageFile.mimeType ??
+        lookupMimeType(imageFile.name) ??
+        'image/jpeg';
 
-    final result = await _client.functions.invoke('ocr-cedula', body: {
-      'imageBase64': base64Image,
-      'mimeType': mimeType,
-    });
+    try {
+      final result = await _client.functions.invoke('ocr-cedula', body: {
+        'imageBase64': base64Image,
+        'mimeType': mimeType,
+        'side': side,
+      });
 
-    if (result.data == null) throw Exception('OCR sin respuesta');
-    final data = Map<String, dynamic>.from(result.data as Map);
-    if (data['success'] != true) throw Exception(data['error'] ?? 'Error OCR');
-    return Map<String, dynamic>.from(data['data'] as Map);
+      if (result.data == null) throw Exception('OCR sin respuesta');
+      final data = Map<String, dynamic>.from(result.data as Map);
+      if (data['wrong_side'] == true) {
+        throw Exception(data['error'] ?? 'Foto incorrecta: verifica que sea el lado correcto de la cédula');
+      }
+      if (data['success'] != true) throw Exception(data['error'] ?? 'Error OCR');
+      return Map<String, dynamic>.from(data['data'] as Map);
+    } on FunctionException catch (e) {
+      // Las respuestas 4xx lanzan FunctionException — parsear el cuerpo
+      try {
+        final raw = e.details;
+        final Map<String, dynamic> body = raw is Map
+            ? Map<String, dynamic>.from(raw)
+            : jsonDecode(raw.toString()) as Map<String, dynamic>;
+        if (body['wrong_side'] == true) {
+          throw Exception(body['error'] ?? 'Foto incorrecta: verifica que sea el lado correcto de la cédula');
+        }
+        throw Exception(body['error'] ?? 'Error OCR (${e.status})');
+      } on FormatException {
+        throw Exception('Error OCR (${e.status})');
+      }
+    }
+  }
+
+  // Combina datos de frente y reverso, priorizando valores no nulos
+  Map<String, dynamic> mergeCedulaOcr(
+    Map<String, dynamic> front,
+    Map<String, dynamic> back,
+  ) {
+    final merged = Map<String, dynamic>.from(front);
+    for (final entry in back.entries) {
+      final existing = merged[entry.key];
+      if ((existing == null || (existing is String && existing.isEmpty)) &&
+          entry.value != null &&
+          (entry.value is! String || (entry.value as String).isNotEmpty)) {
+        merged[entry.key] = entry.value;
+      }
+    }
+    return merged;
   }
 }
