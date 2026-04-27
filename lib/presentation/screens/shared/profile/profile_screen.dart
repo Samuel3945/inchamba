@@ -219,12 +219,15 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ),
 
-                  // ── Phone not verified banner ───────────────────
-                  if (!profile.phoneVerified) ...[
+                  // ── Onboarding checklist ────────────────────────
+                  if (!(profile.avatarUrl?.isNotEmpty ?? false) ||
+                      !profile.hasCedula ||
+                      profile.cedulaBackUrl == null ||
+                      !profile.phoneVerified) ...[
                     const SizedBox(height: 12),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _PhoneVerifyBanner(),
+                      child: _OnboardingChecklist(profile: profile),
                     ),
                   ],
 
@@ -399,15 +402,6 @@ class ProfileScreen extends ConsumerWidget {
                           child: Column(
                             children: [
                               _MenuItem(
-                                icon: Icons.edit_outlined,
-                                label: 'Editar perfil',
-                                subtitle: 'Actualiza tu información',
-                                iconColor: AppColors.primary,
-                                textPrimary: textPrimary,
-                                onTap: () => context.push('/edit-profile'),
-                                showDivider: true,
-                              ),
-                              _MenuItem(
                                 icon: profile.isEmployer
                                     ? Icons.construction_rounded
                                     : Icons.business_rounded,
@@ -420,26 +414,6 @@ class ProfileScreen extends ConsumerWidget {
                                 iconColor: AppColors.accent,
                                 textPrimary: textPrimary,
                                 onTap: () => _confirmRoleSwitch(context, ref, profile),
-                                showDivider: true,
-                              ),
-                              _MenuItem(
-                                icon: Icons.history_rounded,
-                                label: 'Historial de pagos',
-                                subtitle: 'Ver transacciones',
-                                iconColor: AppColors.warning,
-                                textPrimary: textPrimary,
-                                onTap: () => context.push(
-                                  profile.isEmployer ? '/employer/wallet' : '/worker/wallet',
-                                ),
-                                showDivider: true,
-                              ),
-                              _MenuItem(
-                                icon: Icons.settings_outlined,
-                                label: 'Configuración',
-                                subtitle: 'Notificaciones, privacidad',
-                                iconColor: AppColors.textMuted,
-                                textPrimary: textPrimary,
-                                onTap: () => context.push('/settings'),
                                 showDivider: false,
                               ),
                             ],
@@ -1033,57 +1007,198 @@ class _MenuItem extends StatelessWidget {
 }
 
 // ─── Phone not verified banner ────────────────────────────────────────────────
-class _PhoneVerifyBanner extends StatelessWidget {
+class _OnboardingChecklist extends StatelessWidget {
+  final Profile profile;
+  const _OnboardingChecklist({required this.profile});
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.warning.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.warning.withValues(alpha: 0.4)),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasAvatar = profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty;
+    final hasCedula = profile.hasCedula && profile.cedulaBackUrl != null;
+    final hasPhone = profile.phoneVerified;
+    final allDone = hasAvatar && hasCedula && hasPhone;
+
+    if (allDone) return const SizedBox.shrink();
+
+    final items = [
+      (
+        done: hasAvatar,
+        icon: Icons.face_rounded,
+        label: 'Foto de perfil',
+        hint: 'Selfie en vivo con cámara frontal',
       ),
-      child: Row(
+      (
+        done: hasCedula,
+        icon: Icons.badge_rounded,
+        label: 'Cédula de Ciudadanía',
+        hint: 'Frente y reverso de tu CC',
+      ),
+      (
+        done: hasPhone,
+        icon: Icons.phone_rounded,
+        label: 'Teléfono verificado',
+        hint: 'Número con código OTP',
+      ),
+    ];
+
+    final doneCount = [hasAvatar, hasCedula, hasPhone].where((v) => v).length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCard : AppColors.surfaceLowest,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: allDone
+              ? AppColors.success.withValues(alpha: 0.4)
+              : AppColors.primary.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+      ),
+      child: Column(
         children: [
-          const Icon(Icons.phone_missed_rounded, color: AppColors.warning, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: allDone
+                    ? [AppColors.success.withValues(alpha: 0.12), AppColors.success.withValues(alpha: 0.06)]
+                    : [AppColors.primary.withValues(alpha: 0.12), AppColors.primary.withValues(alpha: 0.04)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+            ),
+            child: Row(
               children: [
-                Text(
-                  'Teléfono sin verificar',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.warning,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        allDone ? '¡Perfil completo!' : 'Completa tu perfil para empezar',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: allDone ? AppColors.success : AppColors.primary,
+                        ),
+                      ),
+                      Text(
+                        allDone
+                            ? 'Ya puedes aplicar a trabajos y publicar ofertas'
+                            : 'Necesitas estos datos para aplicar y publicar ofertas',
+                        style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textMuted),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  'Necesitas un número verificado para publicar ofertas y postularte.',
-                  style: GoogleFonts.poppins(
-                    fontSize: 11,
-                    color: AppColors.warning,
-                    height: 1.4,
-                  ),
+                const SizedBox(width: 10),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 44,
+                      height: 44,
+                      child: CircularProgressIndicator(
+                        value: doneCount / items.length,
+                        strokeWidth: 4,
+                        backgroundColor: AppColors.surfaceDim,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          allDone ? AppColors.success : AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$doneCount/${items.length}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: allDone ? AppColors.success : AppColors.primary,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          ElevatedButton(
-            onPressed: () => context.push('/verify-phone'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.warning,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              textStyle: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+
+          // Checklist items
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Column(
+              children: items.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: item.done
+                            ? AppColors.success
+                            : AppColors.surfaceDim,
+                        border: item.done
+                            ? null
+                            : Border.all(color: AppColors.textMuted.withValues(alpha: 0.4)),
+                      ),
+                      child: Icon(
+                        item.done ? Icons.check_rounded : item.icon,
+                        size: 14,
+                        color: item.done ? Colors.white : AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.label,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: item.done
+                                  ? AppColors.success
+                                  : isDark ? AppColors.textWhite : AppColors.textDark,
+                              decoration: item.done ? TextDecoration.none : null,
+                            ),
+                          ),
+                          if (!item.done)
+                            Text(item.hint,
+                                style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textMuted)),
+                        ],
+                      ),
+                    ),
+                    if (item.done)
+                      const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 18),
+                  ],
+                ),
+              )).toList(),
             ),
-            child: const Text('Verificar'),
           ),
+
+          if (!allDone)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => context.push('/edit-profile'),
+                  icon: const Icon(Icons.edit_rounded, size: 16),
+                  label: Text(
+                    'Completar ahora',
+                    style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w700),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

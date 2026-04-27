@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -38,14 +37,6 @@ class SettingsScreen extends HookConsumerWidget {
             title: Text(AppStrings.changePassword, style: GoogleFonts.poppins()),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _showChangePasswordDialog(context, ref),
-          ),
-          const Divider(),
-          // Edit profile
-          ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: Text(AppStrings.editProfile, style: GoogleFonts.poppins()),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/edit-profile'),
           ),
           const Divider(),
           const SizedBox(height: 32),

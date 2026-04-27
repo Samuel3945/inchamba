@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
@@ -41,8 +42,49 @@ class CedulaAdvisorScreen extends HookConsumerWidget {
     final textCtrl = useTextEditingController();
     final scrollCtrl = useScrollController();
     final isLoading = useState(false);
+    final isRecording = useState(false);
     final sessionId = useMemoized(() => const Uuid().v4());
     final conversationHistory = useState<List<Map<String, String>>>([]);
+    final stt = useMemoized(() => SpeechToText());
+    final sttAvailable = useState(false);
+
+    useEffect(() {
+      stt.initialize(onError: (_) => isRecording.value = false).then((ok) {
+        sttAvailable.value = ok;
+      });
+      return () => stt.stop();
+    }, []);
+
+    Future<void> toggleRecording() async {
+      if (isRecording.value) {
+        await stt.stop();
+        isRecording.value = false;
+        return;
+      }
+      if (!sttAvailable.value) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Reconocimiento de voz no disponible en este dispositivo')),
+          );
+        }
+        return;
+      }
+      textCtrl.clear();
+      isRecording.value = true;
+      await stt.listen(
+        onResult: (result) {
+          textCtrl.text = result.recognizedWords;
+          if (result.finalResult) {
+            isRecording.value = false;
+          }
+        },
+        localeId: 'es_CO',
+        listenFor: const Duration(minutes: 3),
+        pauseFor: const Duration(seconds: 6),
+        listenOptions: SpeechListenOptions(cancelOnError: true, partialResults: true),
+      );
+      isRecording.value = stt.isListening;
+    }
 
     void scrollToBottom() {
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -96,7 +138,7 @@ class CedulaAdvisorScreen extends HookConsumerWidget {
         String reply = '';
         final data = response.data;
         if (data is Map) {
-          reply = (data['reply'] ?? data['message'] ?? data['output'] ?? '')
+          reply = (data['response'] ?? data['reply'] ?? data['message'] ?? data['output'] ?? '')
               .toString();
         } else if (data is String) {
           reply = data;
@@ -234,9 +276,9 @@ class CedulaAdvisorScreen extends HookConsumerWidget {
                     minLines: 1,
                     style: GoogleFonts.poppins(fontSize: 14),
                     decoration: InputDecoration(
-                      hintText: 'Escribe tu consulta...',
+                      hintText: isRecording.value ? 'Escuchando...' : 'Escribe o habla tu consulta...',
                       hintStyle: GoogleFonts.poppins(
-                          fontSize: 14, color: AppColors.textMuted),
+                          fontSize: 14, color: isRecording.value ? AppColors.primary : AppColors.textMuted),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(20),
                         borderSide: BorderSide.none,
@@ -253,11 +295,35 @@ class CedulaAdvisorScreen extends HookConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
+                  onTap: isLoading.value ? null : toggleRecording,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: isRecording.value
+                          ? AppColors.error
+                          : (isDark ? AppColors.darkCard : AppColors.surfaceLow),
+                      borderRadius: BorderRadius.circular(22),
+                      border: isRecording.value
+                          ? null
+                          : Border.all(color: isDark ? AppColors.darkBorder : AppColors.surfaceDim),
+                    ),
+                    child: Icon(
+                      isRecording.value ? Icons.stop_rounded : Icons.mic_rounded,
+                      color: isRecording.value ? Colors.white : AppColors.textMuted,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
                   onTap: isLoading.value
                       ? null
                       : () => sendMessage(textCtrl.text),
                   child: Container(
-                    padding: const EdgeInsets.all(12),
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: isLoading.value
                           ? AppColors.textMuted
