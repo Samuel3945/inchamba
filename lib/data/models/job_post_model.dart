@@ -28,6 +28,7 @@ class JobPostModel extends JobPost {
     super.employerName,
     super.employerAvatar,
     super.employerRating,
+    super.difficultyStars = 3,
   });
 
   factory JobPostModel.fromJson(Map<String, dynamic> json) {
@@ -60,6 +61,7 @@ class JobPostModel extends JobPost {
       employerName: employer?['full_name'] as String?,
       employerAvatar: employer?['avatar_url'] as String?,
       employerRating: (employer?['average_rating'] as num?)?.toDouble(),
+      difficultyStars: (json['difficulty_stars'] as int?) ?? 3,
     );
   }
 

@@ -20,6 +20,9 @@ class JobApplication extends Equatable {
   final String? jobCity;
   final String? employerName;
   final List<String> attachmentUrls;
+  final double? proposedPay;
+  final DateTime? jobStartDate;
+  final String? jobSchedule;
 
   const JobApplication({
     required this.id,
@@ -39,6 +42,9 @@ class JobApplication extends Equatable {
     this.jobCity,
     this.employerName,
     this.attachmentUrls = const [],
+    this.proposedPay,
+    this.jobStartDate,
+    this.jobSchedule,
   });
 
   bool get isPending => status == 'pending';
@@ -46,5 +52,5 @@ class JobApplication extends Equatable {
   bool get isRejected => status == 'rejected';
 
   @override
-  List<Object?> get props => [id, jobPostId, workerId, status, createdAt];
+  List<Object?> get props => [id, jobPostId, workerId, status, createdAt, proposedPay];
 }

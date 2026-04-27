@@ -19,6 +19,9 @@ class JobApplicationModel extends JobApplication {
     super.jobCity,
     super.employerName,
     super.attachmentUrls,
+    super.proposedPay,
+    super.jobStartDate,
+    super.jobSchedule,
   });
 
   factory JobApplicationModel.fromJson(Map<String, dynamic> json) {
@@ -44,6 +47,9 @@ class JobApplicationModel extends JobApplication {
       jobCity: job?['city'] as String?,
       employerName: (job?['employer'] as Map<String, dynamic>?)?['full_name'] as String?,
       attachmentUrls: attachments?.map((a) => (a as Map<String, dynamic>)['file_url'] as String).toList() ?? [],
+      proposedPay: (json['proposed_pay'] as num?)?.toDouble(),
+      jobStartDate: job?['start_date'] != null ? DateTime.tryParse(job!['start_date'] as String) : null,
+      jobSchedule: job?['schedule'] as String?,
     );
   }
 
@@ -53,6 +59,7 @@ class JobApplicationModel extends JobApplication {
       'worker_id': workerId,
       'cover_letter': coverLetter,
       'status': 'pending',
+      if (proposedPay != null) 'proposed_pay': proposedPay,
     };
   }
 }

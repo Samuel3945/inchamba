@@ -23,16 +23,15 @@ class ProfileModel extends Profile {
     super.cedulaSex,
     super.cedulaHeightCm,
     super.cedulaDateBirth,
+    super.cedulaFrontUrl,
+    super.cedulaBackUrl,
+    super.avatarLockedUntil,
   });
 
   factory ProfileModel.fromJson(Map<String, dynamic> json) {
-    DateTime? parseCedulaDate(dynamic raw) {
+    DateTime? parseDate(dynamic raw) {
       if (raw == null) return null;
-      try {
-        return DateTime.parse(raw as String);
-      } catch (_) {
-        return null;
-      }
+      try { return DateTime.parse(raw as String); } catch (_) { return null; }
     }
 
     return ProfileModel(
@@ -61,35 +60,34 @@ class ProfileModel extends Profile {
       cedulaBloodType: json['cedula_blood_type'] as String?,
       cedulaSex: json['cedula_sex'] as String?,
       cedulaHeightCm: json['cedula_height_cm'] as int?,
-      cedulaDateBirth: parseCedulaDate(json['cedula_date_birth']),
+      cedulaDateBirth: parseDate(json['cedula_date_birth']),
+      cedulaFrontUrl: json['cedula_front_url'] as String?,
+      cedulaBackUrl: json['cedula_back_url'] as String?,
+      avatarLockedUntil: parseDate(json['avatar_locked_until']),
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'full_name': fullName,
-      'phone': phone,
-      'city': city,
-      'role': role,
-      'company_name': companyName,
-      'avatar_url': avatarUrl,
-      'bio': bio,
-      if (cedula != null) 'cedula': cedula,
-      'skill_categories': categories,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'full_name': fullName,
+        'phone': phone,
+        'city': city,
+        'role': role,
+        'company_name': companyName,
+        'avatar_url': avatarUrl,
+        'bio': bio,
+        if (cedula != null) 'cedula': cedula,
+        'skill_categories': categories,
+      };
 
-  Map<String, dynamic> toUpdateJson() {
-    return {
-      'full_name': fullName,
-      'phone': phone,
-      'city': city,
-      'company_name': companyName,
-      'avatar_url': avatarUrl,
-      'bio': bio,
-      if (cedula != null) 'cedula': cedula,
-      'skill_categories': categories,
-    };
-  }
+  Map<String, dynamic> toUpdateJson() => {
+        'full_name': fullName,
+        'phone': phone,
+        'city': city,
+        'company_name': companyName,
+        'avatar_url': avatarUrl,
+        'bio': bio,
+        if (cedula != null) 'cedula': cedula,
+        'skill_categories': categories,
+      };
 }

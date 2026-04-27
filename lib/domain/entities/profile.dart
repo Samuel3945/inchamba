@@ -28,6 +28,11 @@ class Profile extends Equatable {
   final int? cedulaHeightCm;
   final DateTime? cedulaDateBirth;
 
+  // Fotos de cédula y bloqueo de avatar
+  final String? cedulaFrontUrl;
+  final String? cedulaBackUrl;
+  final DateTime? avatarLockedUntil;
+
   const Profile({
     required this.id,
     required this.fullName,
@@ -50,11 +55,16 @@ class Profile extends Equatable {
     this.cedulaSex,
     this.cedulaHeightCm,
     this.cedulaDateBirth,
+    this.cedulaFrontUrl,
+    this.cedulaBackUrl,
+    this.avatarLockedUntil,
   });
 
   bool get isEmployer => role == roleEmployer;
   bool get isWorker => role == roleWorker;
   bool get hasCedula => cedula != null && cedula!.isNotEmpty;
+  bool get isAvatarLocked =>
+      avatarLockedUntil != null && avatarLockedUntil!.isAfter(DateTime.now());
 
   int? get age {
     if (cedulaDateBirth == null) return null;
@@ -72,6 +82,7 @@ class Profile extends Equatable {
         id, fullName, email, phone, city, role, companyName, avatarUrl, bio,
         cedula, categories, rating, ratingCount, jobsCompleted, createdAt,
         phoneVerified, cedulaPlaceBirth, cedulaBloodType, cedulaSex,
-        cedulaHeightCm, cedulaDateBirth,
+        cedulaHeightCm, cedulaDateBirth, cedulaFrontUrl, cedulaBackUrl,
+        avatarLockedUntil,
       ];
 }

@@ -29,6 +29,7 @@ class JobPost extends Equatable {
   final String? employerName;
   final String? employerAvatar;
   final double? employerRating;
+  final int difficultyStars;
 
   const JobPost({
     required this.id,
@@ -57,6 +58,7 @@ class JobPost extends Equatable {
     this.employerName,
     this.employerAvatar,
     this.employerRating,
+    this.difficultyStars = 3,
   });
 
   bool get isUrgent {
@@ -72,5 +74,5 @@ class JobPost extends Equatable {
   int get spotsLeft => workersNeeded - workersHired;
 
   @override
-  List<Object?> get props => [id, employerId, title, status, createdAt];
+  List<Object?> get props => [id, employerId, title, status, createdAt, difficultyStars];
 }
