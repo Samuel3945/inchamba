@@ -115,25 +115,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> signUp({
     required String email,
     required String password,
-    required String fullName,
-    String phone = '',
-    required String city,
+    String city = '',
     required String role,
-    required String cedula,
-    Map<String, dynamic>? cedulaExtra,
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
+      final namePart = email.split('@').first.replaceAll(RegExp(r'[._+]'), ' ');
+      final fullName = namePart.split(' ').map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' ').trim();
       await _ds.signUp(
         email: email,
         password: password,
         profileData: {
-          'full_name': fullName,
-          'phone': phone,
+          'full_name': fullName.isEmpty ? 'Usuario' : fullName,
+          'phone': '',
           'city': city,
           'role': role,
-          if (cedula.isNotEmpty) 'cedula': cedula,
-          if (cedulaExtra != null) ...cedulaExtra,
         },
       );
       // Don't auto-authenticate — user must verify email first

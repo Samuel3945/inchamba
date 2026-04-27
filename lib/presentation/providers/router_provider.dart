@@ -6,8 +6,9 @@ import '../screens/splash/splash_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/auth/forgot_password_screen.dart';
-import '../screens/worker/feed/worker_feed_screen.dart';
+import '../screens/worker/dashboard/worker_dashboard_screen.dart';
 import '../screens/worker/job_detail/job_detail_screen.dart';
+import '../screens/worker/progress/progress_screen.dart';
 import '../screens/worker/application/application_screen.dart';
 import '../screens/worker/my_applications/my_applications_screen.dart';
 import '../screens/worker/mark_completed/mark_completed_screen.dart';
@@ -48,7 +49,8 @@ class _RouterNotifier extends ChangeNotifier {
         loc == '/register' ||
         loc == '/splash' ||
         loc == '/forgot-password' ||
-        loc == '/browse';
+        loc == '/browse' ||
+        loc == '/cedula-advisor';
 
     debugPrint('[ROUTER] redirect: loc=$loc, status=${authState.status}');
 
@@ -62,9 +64,9 @@ class _RouterNotifier extends ChangeNotifier {
         final isEmployer = authState.profile?.isEmployer ?? false;
         return isEmployer ? '/employer' : '/worker';
       }
-      return '/login';
+      return '/browse'; // primera vista: feed de ofertas sin registrarse
     }
-    if (!isAuth && !isAuthRoute) return '/login';
+    if (!isAuth && !isAuthRoute) return '/browse';
     if (isAuth && isAuthRoute) {
       final isEmployer = authState.profile?.isEmployer ?? false;
       return isEmployer ? '/employer' : '/worker';
@@ -118,11 +120,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: '/worker',
-            builder: (context, state) => const WorkerFeedScreen(),
+            builder: (context, state) => const WorkerDashboardScreen(),
           ),
           GoRoute(
-            path: '/worker/applications',
-            builder: (context, state) => const MyApplicationsScreen(),
+            path: '/worker/progress',
+            builder: (context, state) => const ProgressScreen(),
           ),
           GoRoute(
             path: '/worker/profile',
@@ -258,6 +260,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/verify-phone',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const PhoneVerifyScreen(),
+      ),
+      GoRoute(
+        path: '/worker/applications',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const MyApplicationsScreen(),
       ),
       GoRoute(
         path: '/cedula-advisor',

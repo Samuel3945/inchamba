@@ -38,6 +38,7 @@ class ApplicationSubmitter {
     required String coverLetter,
     List<XFile> attachments = const [],
     String? audioUrl,
+    double? proposedPay,
   }) async {
     final userId = _datasource.currentUserId!;
     final app = await _datasource.createApplication({
@@ -46,6 +47,7 @@ class ApplicationSubmitter {
       'cover_letter': coverLetter,
       'status': 'pending',
       'audio_url': ?audioUrl,
+      'proposed_pay': ?proposedPay,
     });
 
     for (final xfile in attachments) {
