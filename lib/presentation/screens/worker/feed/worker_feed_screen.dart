@@ -139,7 +139,7 @@ class WorkerFeedScreen extends HookConsumerWidget {
                           isDark: isDark,
                         ),
                         ...AppConstants.jobCategories.entries.map((e) => _CategoryChip(
-                          label: e.value,
+                          label: Formatters.categoryLabel(e.key),
                           selected: filters.category == e.key,
                           onTap: () {
                             ref.read(jobFiltersProvider.notifier).state = filters.copyWith(
@@ -318,7 +318,6 @@ class _JobCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final categoryEmoji = Formatters.categoryEmoji(job.categoryIcon ?? job.categoryName);
     final isUrgent = job.isUrgent as bool? ?? false;
 
     return GestureDetector(
@@ -343,22 +342,10 @@ class _JobCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top row: category icon + title + urgent badge
+              // Top row: title + urgent badge
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 52,
-                    height: 52,
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Center(
-                      child: Text(categoryEmoji, style: const TextStyle(fontSize: 26)),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

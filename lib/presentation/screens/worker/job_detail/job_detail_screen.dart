@@ -51,9 +51,10 @@ class JobDetailScreen extends ConsumerWidget {
                       ),
                     ),
                     child: Center(
-                      child: Text(
-                        Formatters.categoryEmoji(job.categoryIcon ?? job.categoryName),
-                        style: const TextStyle(fontSize: 72),
+                      child: Icon(
+                        Formatters.categoryIconData(job.categoryIcon ?? job.categoryName),
+                        color: Colors.white,
+                        size: 72,
                       ),
                     ),
                   ),
@@ -252,26 +253,23 @@ class JobDetailScreen extends ConsumerWidget {
                     }
                     return FloatingActionButton.extended(
                       onPressed: () {
-                        if (profile != null && !profile.phoneVerified) {
+                        if (profile != null && (!profile.hasCedula || profile.avatarUrl == null || !profile.phoneVerified)) {
                           showDialog(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: Text('Teléfono no verificado',
-                                  style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+                              title: Text('Perfil incompleto', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
                               content: Text(
-                                'Para postularte necesitas verificar tu número de teléfono. Agrégalo desde tu perfil.',
+                                'Para postularte necesitas:\n'
+                                '${profile.hasCedula ? "" : "• Agregar tu cédula de ciudadanía\n"}'
+                                '${profile.avatarUrl != null ? "" : "• Subir una foto de perfil\n"}'
+                                '${profile.phoneVerified ? "" : "• Verificar tu teléfono\n"}'
+                                '\nPuedes hacerlo desde tu perfil.',
                                 style: GoogleFonts.poppins(fontSize: 14),
                               ),
                               actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(ctx),
-                                  child: const Text('Cancelar'),
-                                ),
+                                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
                                 ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pop(ctx);
-                                    context.push('/edit-profile');
-                                  },
+                                  onPressed: () { Navigator.pop(ctx); context.push('/edit-profile'); },
                                   child: const Text('Ir al perfil'),
                                 ),
                               ],

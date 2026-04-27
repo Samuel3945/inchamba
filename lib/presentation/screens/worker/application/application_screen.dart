@@ -9,8 +9,11 @@ import 'package:record/record.dart';
 import 'package:audioplayers/audioplayers.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../providers/application_provider.dart';
+import '../../../providers/auth_provider.dart';
 import '../../../providers/core_providers.dart';
+import '../../../providers/job_provider.dart';
 import '../../../widgets/common_widgets.dart';
 
 class ApplicationScreen extends HookConsumerWidget {
@@ -21,9 +24,13 @@ class ApplicationScreen extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final coverLetterCtrl = useTextEditingController();
+    final proposedPayCtrl = useTextEditingController();
+    final useProposedPay = useState(false);
     final attachments = useState<List<XFile>>([]);
     final isSubmitting = useState(false);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final profile = ref.watch(currentProfileProvider);
+    final jobAsync = ref.watch(jobDetailProvider(jobPostId));
 
     // ── Audio state ──────────────────────────────────────
     final recorder = useMemoized(() => AudioRecorder());
@@ -133,6 +140,34 @@ class ApplicationScreen extends HookConsumerWidget {
     }
 
     Future<void> submit() async {
+      // Guard: profile completeness
+      if (profile != null && (!profile.hasCedula || profile.avatarUrl == null || !profile.phoneVerified)) {
+        if (context.mounted) {
+          await showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text('Perfil incompleto', style: GoogleFonts.poppins(fontWeight: FontWeight.w700)),
+              content: Text(
+                'Para postularte necesitas:\n'
+                '${!profile.hasCedula ? "• Agregar tu cédula de ciudadanía\n" : ""}'
+                '${profile.avatarUrl == null ? "• Subir una foto de perfil\n" : ""}'
+                '${!profile.phoneVerified ? "• Verificar tu teléfono\n" : ""}'
+                '\nPuedes hacerlo desde tu perfil.',
+                style: GoogleFonts.poppins(fontSize: 14),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+                ElevatedButton(
+                  onPressed: () { Navigator.pop(ctx); context.push('/edit-profile'); },
+                  child: const Text('Ir al perfil'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
       if (coverLetterCtrl.text.trim().isEmpty && recordedPath.value == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Escribe una presentación o graba un mensaje de voz')),
@@ -168,11 +203,16 @@ class ApplicationScreen extends HookConsumerWidget {
           audioUrl = await ds.uploadXFile(AppConstants.applicationAttachmentsBucket, audioXFile);
         }
 
+        double? proposedPay;
+        if (useProposedPay.value && proposedPayCtrl.text.trim().isNotEmpty) {
+          proposedPay = double.tryParse(proposedPayCtrl.text.trim().replaceAll(RegExp(r'[^0-9.]'), ''));
+        }
         await ref.read(applicationSubmitterProvider).submit(
               jobPostId: jobPostId,
               coverLetter: coverLetterCtrl.text.trim(),
               attachments: attachments.value,
               audioUrl: audioUrl,
+              proposedPay: proposedPay,
             );
 
         if (context.mounted) {
@@ -208,6 +248,85 @@ class ApplicationScreen extends HookConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Price negotiation ─────────────────────────────
+              jobAsync.when(
+                loading: () => const SizedBox.shrink(),
+                error: (_, _) => const SizedBox.shrink(),
+                data: (job) => Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.darkCard : AppColors.surfaceLowest,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: useProposedPay.value
+                          ? AppColors.warning.withValues(alpha: 0.5)
+                          : AppColors.surfaceDim,
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.price_change_outlined, color: AppColors.primary, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Precio del trabajo',
+                            style: GoogleFonts.poppins(fontSize: 15, fontWeight: FontWeight.w700, color: textPrimary),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Text('Precio publicado: ', style: GoogleFonts.poppins(fontSize: 13, color: AppColors.textMuted)),
+                          Text(
+                            '${Formatters.currency(job.pay)} ${Formatters.payType(job.payType)}',
+                            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.success),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Switch(
+                            value: useProposedPay.value,
+                            onChanged: (val) => useProposedPay.value = val,
+                            activeThumbColor: AppColors.warning,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Proponer otro precio',
+                              style: GoogleFonts.poppins(fontSize: 13, color: textPrimary),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (useProposedPay.value) ...[
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: proposedPayCtrl,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: InputDecoration(
+                            hintText: 'Ej: ${job.pay.toStringAsFixed(0)}',
+                            prefixText: '\$ ',
+                            labelText: 'Mi precio propuesto (COP)',
+                            prefixIcon: const Icon(Icons.attach_money_rounded, color: AppColors.warning),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'El empleador verá tu propuesta y decidirá si acepta.',
+                          style: GoogleFonts.poppins(fontSize: 11, color: AppColors.textMuted),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
               Text(
                 'Carta de presentación',
                 style: GoogleFonts.poppins(
